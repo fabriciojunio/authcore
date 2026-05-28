@@ -2,7 +2,6 @@ import { useQuery } from '@tanstack/react-query';
 import { Users, Activity, ShieldCheck, TrendingUp, Clock, CheckCircle } from 'lucide-react';
 import { useAuthStore } from '@/store/auth.store';
 import { StatCard, LoadingSpinner } from '@/components/ui';
-import { apiClient } from '@/services/api.client';
 
 interface DashboardStats {
   totalUsers: number;
