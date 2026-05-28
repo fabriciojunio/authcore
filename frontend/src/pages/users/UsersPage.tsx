@@ -4,7 +4,6 @@ import { Users, Search, Filter, MoreVertical, UserPlus, ChevronLeft, ChevronRigh
 import { apiClient, ApiResponse } from '@/services/api.client';
 import { useAuthStore } from '@/store/auth.store';
 import { Avatar, Badge, EmptyState, LoadingSpinner } from '@/components/ui';
-import { AuthorizationError } from '@/utils/errors';
 
 interface UserItem {
   id: string;

@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Users, Activity, ShieldCheck, TrendingUp, Clock, CheckCircle } from 'lucide-react';
 import { useAuthStore } from '@/store/auth.store';
 import { StatCard, LoadingSpinner } from '@/components/ui';
-import { apiClient, ApiResponse } from '@/services/api.client';
+import { apiClient } from '@/services/api.client';
 
 interface DashboardStats {
   totalUsers: number;
@@ -15,7 +15,7 @@ export function DashboardPage() {
   const user = useAuthStore((s) => s.user);
   const isAdmin = user?.role === 'admin';
 
-  const { data: stats, isLoading } = useQuery({
+  const { data: stats, isLoading } = useQuery<DashboardStats>({
     queryKey: ['dashboard-stats'],
     queryFn: async () => {
       // In a real app this would be a stats endpoint
