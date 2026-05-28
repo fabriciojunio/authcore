@@ -1,179 +1,92 @@
-import { useQuery } from '@tanstack/react-query';
-import { Users, Activity, ShieldCheck, TrendingUp, Clock, CheckCircle } from 'lucide-react';
-import { useAuthStore } from '@/store/auth.store';
-import { StatCard, LoadingSpinner } from '@/components/ui';
+import { useAuthStore } from '../../store/authStore'
+import styles from '../DashboardPage.module.css'
 
-interface DashboardStats {
-  totalUsers: number;
-  activeUsers: number;
-  securityScore: number;
-  uptime: number;
-}
+const metrics = [
+  { label: 'Usuários totais',  value: '2.491', delta: '↑ 12%', info: 'este mês' },
+  { label: 'Sessões ativas',   value: '847',   delta: '↑ 5%',  info: 'vs ontem' },
+  { label: 'Requisições',      value: '128k',  delta: '↑ 34%', info: 'últimas 24h' },
+  { label: 'Taxa de erro',     value: '0.02%', delta: '↓ 8%',  info: 'melhorando' },
+]
 
-export function DashboardPage() {
-  const user = useAuthStore((s) => s.user);
-  const isAdmin = user?.role === 'admin';
+const activity = [
+  { initials: 'AL', color: 'rgba(34,197,94,0.1)',   txtColor: '#22c55e', action: 'Conta registrada',  email: 'alice@acme.com',     time: '2m',  tag: 'novo',  tagColor: 'rgba(34,197,94,0.1)',  tagTxt: '#22c55e' },
+  { initials: 'BO', color: 'rgba(100,96,240,0.1)',  txtColor: '#8b87ff', action: 'Senha atualizada',  email: 'bob@corp.io',         time: '14m', tag: null },
+  { initials: 'CH', color: 'rgba(239,68,68,0.1)',   txtColor: '#ef4444', action: 'Usuário removido',  email: 'charlie@example.com', time: '1h',  tag: 'soft',  tagColor: 'rgba(239,68,68,0.1)',  tagTxt: '#ef4444' },
+  { initials: 'DI', color: 'rgba(100,96,240,0.1)',  txtColor: '#8b87ff', action: 'Promovido a Admin', email: 'diana@startup.dev',   time: '3h',  tag: null },
+  { initials: 'EV', color: 'rgba(245,158,11,0.1)',  txtColor: '#f59e0b', action: 'Conta suspensa',    email: 'eve@company.com',     time: '5h',  tag: null },
+]
 
-  const { data: stats, isLoading } = useQuery<DashboardStats>({
-    queryKey: ['dashboard-stats'],
-    queryFn: async () => {
-      // In a real app this would be a stats endpoint
-      // For demo, we return mock data
-      await new Promise((r) => setTimeout(r, 500));
-      return { totalUsers: 248, activeUsers: 183, securityScore: 98, uptime: 99.9 };
-    },
-    enabled: isAdmin,
-  });
+const systemInfo = [
+  { k: 'Status',     v: 'Operacional' },
+  { k: 'Uptime',    v: '14d 6h sem restart' },
+  { k: 'Memória',   v: '128 MB heap' },
+  { k: 'Node.js',   v: 'v20.14 LTS' },
+  { k: 'Versão',    v: '1.0.0 · production' },
+  { k: 'Banco',     v: 'PostgreSQL · healthy' },
+  { k: 'Cache',     v: 'Redis · healthy' },
+  { k: 'Websocket', v: '847 conexões ativas' },
+]
 
-  const recentActivity = [
-    { id: 1, user: 'Alice Johnson', action: 'Logged in', time: '2 min ago', type: 'login' },
-    { id: 2, user: 'Bob Smith', action: 'Updated profile', time: '15 min ago', type: 'update' },
-    { id: 3, user: 'Carol White', action: 'Password changed', time: '1 hour ago', type: 'security' },
-    { id: 4, user: 'David Lee', action: 'Account created', time: '3 hours ago', type: 'create' },
-    { id: 5, user: 'Eve Martinez', action: '2FA enabled', time: '5 hours ago', type: 'security' },
-  ];
-
-  const activityColor: Record<string, string> = {
-    login: 'bg-blue-100 text-blue-600',
-    update: 'bg-purple-100 text-purple-600',
-    security: 'bg-green-100 text-green-600',
-    create: 'bg-orange-100 text-orange-600',
-  };
-
-  const activityIcon: Record<string, React.ComponentType<{ className?: string }>> = {
-    login: Activity,
-    update: Clock,
-    security: ShieldCheck,
-    create: CheckCircle,
-  };
-
-  const hour = new Date().getHours();
-  const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
+export default function DashboardPage() {
+  const user = useAuthStore(s => s.user)
+  const hour = new Date().getHours()
+  const greeting = hour < 12 ? 'Bom dia' : hour < 18 ? 'Boa tarde' : 'Boa noite'
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      {/* Page header */}
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">
-          {greeting}, {user?.name?.split(' ')[0]} 👋
-        </h1>
-        <p className="mt-1 text-sm text-gray-500">
-          Here's what's happening with your account today.
-        </p>
+    <div className={styles.page}>
+      <div className={styles.pageHeader}>
+        <div className={styles.greeting}>{greeting}</div>
+        <h1 className={styles.pageTitle}>{user?.name}</h1>
       </div>
 
-      {/* Stats grid (admin only) */}
-      {isAdmin && (
-        <>
-          {isLoading ? (
-            <div className="flex justify-center py-8">
-              <LoadingSpinner size="lg" />
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-              <StatCard
-                label="Total Users"
-                value={stats?.totalUsers ?? 0}
-                icon={Users}
-                color="blue"
-                trend={{ value: 12, label: 'this month' }}
-              />
-              <StatCard
-                label="Active Today"
-                value={stats?.activeUsers ?? 0}
-                icon={Activity}
-                color="green"
-                trend={{ value: 5, label: 'vs yesterday' }}
-              />
-              <StatCard
-                label="Security Score"
-                value={`${stats?.securityScore ?? 0}%`}
-                icon={ShieldCheck}
-                color="purple"
-              />
-              <StatCard
-                label="Uptime SLA"
-                value={`${stats?.uptime ?? 0}%`}
-                icon={TrendingUp}
-                color="orange"
-              />
-            </div>
-          )}
-        </>
-      )}
-
-      {/* Content grid */}
-      <div className={`grid gap-6 ${isAdmin ? 'lg:grid-cols-3' : 'lg:grid-cols-2'}`}>
-        {/* Quick actions */}
-        <div className="card p-6">
-          <h2 className="mb-4 text-base font-semibold text-gray-900">Quick Actions</h2>
-          <div className="space-y-2">
-            {[
-              { label: 'Update your profile', href: '/profile', icon: Users, desc: 'Edit name, phone, avatar' },
-              { label: 'Change password', href: '/profile?tab=security', icon: ShieldCheck, desc: 'Keep your account secure' },
-              { label: 'Enable 2FA', href: '/profile?tab=security', icon: Activity, desc: 'Add extra protection' },
-            ].map((action) => (
-              <a
-                key={action.label}
-                href={action.href}
-                className="flex items-center gap-4 rounded-lg p-3 text-sm transition-colors hover:bg-gray-50"
-              >
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary-50">
-                  <action.icon className="h-4 w-4 text-primary-600" />
-                </div>
-                <div>
-                  <p className="font-medium text-gray-900">{action.label}</p>
-                  <p className="text-xs text-gray-500">{action.desc}</p>
-                </div>
-              </a>
-            ))}
+      <div className={styles.metrics}>
+        {metrics.map(m => (
+          <div key={m.label} className={styles.metric}>
+            <div className={styles.mLabel}>{m.label}</div>
+            <div className={styles.mValue}>{m.value}</div>
+            <div className={styles.mDelta}><span>{m.delta}</span> {m.info}</div>
           </div>
-        </div>
+        ))}
+      </div>
 
-        {/* My account summary */}
-        <div className="card p-6">
-          <h2 className="mb-4 text-base font-semibold text-gray-900">Account Summary</h2>
-          <div className="space-y-4">
-            {[
-              { label: 'Full name', value: user?.name },
-              { label: 'Email', value: user?.email },
-              { label: 'Role', value: user?.role },
-              { label: 'Status', value: user?.status },
-            ].map((item) => (
-              <div key={item.label} className="flex items-center justify-between">
-                <span className="text-sm text-gray-500">{item.label}</span>
-                <span className="text-sm font-medium capitalize text-gray-900">{item.value}</span>
+      <div className={styles.gridTwo}>
+        <div>
+          <div className={styles.sectionLabel}>Atividade recente</div>
+          <div className={styles.actList}>
+            {activity.map((a, i) => (
+              <div key={i} className={styles.actRow}>
+                <div className={styles.actAva} style={{ background: a.color, color: a.txtColor }}>
+                  {a.initials}
+                </div>
+                <div className={styles.actBody}>
+                  <div className={styles.actAction}>
+                    {a.action}
+                    {a.tag && (
+                      <span className={styles.tag} style={{ background: a.tagColor, color: a.tagTxt }}>
+                        {a.tag}
+                      </span>
+                    )}
+                  </div>
+                  <div className={styles.actEmail}>{a.email}</div>
+                </div>
+                <div className={styles.actTime}>{a.time}</div>
               </div>
             ))}
           </div>
         </div>
 
-        {/* Recent activity (admin only) */}
-        {isAdmin && (
-          <div className="card p-6 lg:col-span-1">
-            <h2 className="mb-4 text-base font-semibold text-gray-900">Recent Activity</h2>
-            <div className="space-y-4">
-              {recentActivity.map((item) => {
-                const Icon = activityIcon[item.type] ?? Activity;
-                return (
-                  <div key={item.id} className="flex items-start gap-3">
-                    <div
-                      className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${activityColor[item.type]}`}
-                    >
-                      <Icon className="h-4 w-4" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium text-gray-900">{item.user}</p>
-                      <p className="text-xs text-gray-500">{item.action}</p>
-                    </div>
-                    <span className="whitespace-nowrap text-xs text-gray-400">{item.time}</span>
-                  </div>
-                );
-              })}
-            </div>
+        <div>
+          <div className={styles.sectionLabel}>Status do sistema</div>
+          <div className={styles.sideCard}>
+            {systemInfo.map(r => (
+              <div key={r.k} className={styles.sideCardRow}>
+                <span className={styles.sk}>{r.k}</span>
+                <span className={styles.sv}>{r.v}</span>
+              </div>
+            ))}
           </div>
-        )}
+        </div>
       </div>
     </div>
-  );
+  )
 }

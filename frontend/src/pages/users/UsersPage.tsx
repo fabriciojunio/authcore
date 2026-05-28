@@ -1,239 +1,164 @@
-import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { Users, Search, Filter, MoreVertical, UserPlus, ChevronLeft, ChevronRight } from 'lucide-react';
-import { apiClient, ApiResponse } from '@/services/api.client';
-import { useAuthStore } from '@/store/auth.store';
-import { Avatar, Badge, EmptyState, LoadingSpinner } from '@/components/ui';
+import { useQuery } from '@tanstack/react-query'
+import { useAuthStore } from '../../store/authStore'
+import { api } from '../../services/api'
+import styles from '../UsersPage.module.css'
 
-interface UserItem {
-  id: string;
-  name: string;
-  email: string;
-  role: 'admin' | 'manager' | 'user';
-  status: string;
-  createdAt: string;
-  lastLoginAt?: string;
+interface User {
+  id: string; name: string; email: string
+  role: string; status: string
+  createdAt: string; lastLoginAt: string | null
 }
 
-interface PaginationMeta {
-  total: number;
-  page: number;
-  limit: number;
-  totalPages: number;
-  hasNext: boolean;
-  hasPrev: boolean;
+const DEMO_USERS: User[] = [
+  { id: 'u1', name: 'Alice Santos',    email: 'alice@acme.com',     role: 'admin',   status: 'active',    createdAt: '2024-01-15T10:00:00Z', lastLoginAt: '2024-12-20T08:30:00Z' },
+  { id: 'u2', name: 'Bob Oliveira',    email: 'bob@corp.io',         role: 'manager', status: 'active',    createdAt: '2024-02-20T14:00:00Z', lastLoginAt: '2024-12-19T16:45:00Z' },
+  { id: 'u3', name: 'Charlie Lima',    email: 'charlie@example.com', role: 'user',    status: 'suspended', createdAt: '2024-03-10T09:00:00Z', lastLoginAt: null },
+  { id: 'u4', name: 'Diana Costa',     email: 'diana@startup.dev',   role: 'admin',   status: 'active',    createdAt: '2024-04-05T11:00:00Z', lastLoginAt: '2024-12-20T09:00:00Z' },
+  { id: 'u5', name: 'Eva Martins',     email: 'eva@company.com',     role: 'user',    status: 'pending',   createdAt: '2024-05-01T08:00:00Z', lastLoginAt: null },
+]
+
+const avatarColors: Record<string, { bg: string; color: string }> = {
+  admin:   { bg: 'rgba(100,96,240,0.15)', color: '#8b87ff' },
+  manager: { bg: 'rgba(59,130,246,0.12)', color: '#3b82f6' },
+  user:    { bg: 'rgba(255,255,255,0.06)', color: '#5a5a70' },
 }
 
-const ROLE_BADGE: Record<string, 'blue' | 'green' | 'gray'> = {
-  admin: 'blue',
-  manager: 'green',
-  user: 'gray',
-};
+function initials(name: string) {
+  return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
+}
 
-const STATUS_BADGE: Record<string, 'green' | 'red' | 'yellow' | 'gray'> = {
-  active: 'green',
-  inactive: 'gray',
-  suspended: 'red',
-  pending_verification: 'yellow',
-};
+function fmtDate(d: string | null) {
+  if (!d) return '—'
+  return new Date(d).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })
+}
 
-export function UsersPage() {
-  const user = useAuthStore((s) => s.user);
-  const [page, setPage] = useState(1);
-  const [search, setSearch] = useState('');
-  const [searchInput, setSearchInput] = useState('');
+export default function UsersPage() {
+  const isDemo = useAuthStore((s) => s.isDemo)
 
-  if (user?.role === 'user') {
-    return (
-      <div className="flex min-h-96 items-center justify-center">
-        <EmptyState
-          icon={Users}
-          title="Access Restricted"
-          description="You don't have permission to view this page."
-        />
-      </div>
-    );
-  }
-
-  const { data, isLoading, error } = useQuery({
-    queryKey: ['users', page, search],
+  const { data: apiData, isLoading, isError } = useQuery({
+    queryKey: ['users'],
     queryFn: async () => {
-      const params = new URLSearchParams({
-        page: String(page),
-        limit: '10',
-        sortBy: 'createdAt',
-        sortOrder: 'DESC',
-      });
-      const res = await apiClient.get<ApiResponse<UserItem[]> & { meta: PaginationMeta }>(
-        `/users?${params}`
-      );
-      return res.data;
+      const res = await api.get('/users?limit=20')
+      return res.data.data as { data: User[]; total: number; nextCursor: string | null }
     },
-    placeholderData: (prev) => prev,
-  });
+    enabled: !isDemo,
+  })
 
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    setSearch(searchInput);
-    setPage(1);
-  };
-
-  const formatDate = (date: string) =>
-    new Intl.DateTimeFormat('en-US', { dateStyle: 'medium' }).format(new Date(date));
+  const displayData = isDemo
+    ? { data: DEMO_USERS, total: DEMO_USERS.length, nextCursor: null }
+    : apiData
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Users</h1>
-          <p className="mt-1 text-sm text-gray-500">
-            {data?.meta?.total ?? 0} total users
-          </p>
-        </div>
-        <button className="btn-primary self-start">
-          <UserPlus className="h-4 w-4" />
-          Invite user
-        </button>
-      </div>
-
-      {/* Search & filters */}
-      <div className="card p-4">
-        <form onSubmit={handleSearch} className="flex gap-3">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-            <input
-              type="search"
-              value={searchInput}
-              onChange={(e) => setSearchInput(e.target.value)}
-              placeholder="Search by name or email..."
-              className="input pl-9"
-            />
+    <div className={styles.page}>
+      <div className={styles.pageBar}>
+        <span className={styles.pageTitle}>Usuários</span>
+        {displayData && <span className={styles.pageBadge}>{displayData.total.toLocaleString('pt-BR')}</span>}
+        <div className={styles.pageBarRight}>
+          <div className={styles.searchBox}>
+            <i className="ti ti-search" aria-hidden="true" />
+            <input className={styles.searchInp} placeholder="Buscar nome ou e-mail…" aria-label="Buscar usuários" />
           </div>
-          <button type="submit" className="btn-secondary">
-            <Filter className="h-4 w-4" />
-            Search
+          <button className={styles.btnOutline} aria-label="Filtros">
+            <i className="ti ti-adjustments-horizontal" aria-hidden="true" style={{ fontSize: 14 }} />
+            Filtros
           </button>
-        </form>
+          <button className={styles.btnPrimary} aria-label="Convidar usuário">
+            <i className="ti ti-plus" aria-hidden="true" style={{ fontSize: 14 }} />
+            Convidar
+          </button>
+        </div>
       </div>
 
-      {/* Table */}
-      <div className="card overflow-hidden">
-        {isLoading ? (
-          <div className="flex items-center justify-center py-16">
-            <LoadingSpinner size="lg" />
-          </div>
-        ) : error ? (
-          <div className="py-16 text-center text-sm text-red-500">
-            Failed to load users. Please try again.
-          </div>
-        ) : !data?.data?.length ? (
-          <EmptyState icon={Users} title="No users found" description="Try adjusting your search." />
-        ) : (
-          <>
-            {/* Desktop table */}
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-gray-100 bg-gray-50">
-                    <th className="whitespace-nowrap px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
-                      User
-                    </th>
-                    <th className="whitespace-nowrap px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
-                      Role
-                    </th>
-                    <th className="whitespace-nowrap px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
-                      Status
-                    </th>
-                    <th className="whitespace-nowrap px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
-                      Joined
-                    </th>
-                    <th className="whitespace-nowrap px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
-                      Last login
-                    </th>
-                    <th className="px-6 py-3" />
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {data.data.map((u) => (
-                    <tr key={u.id} className="group hover:bg-gray-50 transition-colors">
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-3">
-                          <Avatar name={u.name} size="sm" />
-                          <div>
-                            <p className="font-medium text-gray-900">{u.name}</p>
-                            <p className="text-xs text-gray-500">{u.email}</p>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <Badge label={u.role} variant={ROLE_BADGE[u.role] ?? 'gray'} />
-                      </td>
-                      <td className="px-6 py-4">
-                        <Badge
-                          label={u.status.replace('_', ' ')}
-                          variant={STATUS_BADGE[u.status] ?? 'gray'}
-                        />
-                      </td>
-                      <td className="px-6 py-4 text-gray-500">{formatDate(u.createdAt)}</td>
-                      <td className="px-6 py-4 text-gray-500">
-                        {u.lastLoginAt ? formatDate(u.lastLoginAt) : '—'}
-                      </td>
-                      <td className="px-6 py-4">
-                        <button className="rounded-lg p-1.5 text-gray-400 opacity-0 hover:bg-gray-100 hover:text-gray-700 group-hover:opacity-100 transition-opacity">
-                          <MoreVertical className="h-4 w-4" />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+      <div className={styles.tableWrap}>
+        <div className={styles.tableHead}>
+          <div className={styles.th}>Usuário</div>
+          <div className={styles.th}>Acesso</div>
+          <div className={styles.th}>Status</div>
+          <div className={styles.th}>Último login</div>
+          <div className={styles.th} />
+        </div>
 
-            {/* Pagination */}
-            {data.meta && data.meta.totalPages > 1 && (
-              <div className="flex items-center justify-between border-t border-gray-100 px-6 py-4">
-                <p className="text-sm text-gray-500">
-                  Showing {(data.meta.page - 1) * data.meta.limit + 1}–
-                  {Math.min(data.meta.page * data.meta.limit, data.meta.total)} of{' '}
-                  {data.meta.total} results
-                </p>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => setPage((p) => p - 1)}
-                    disabled={!data.meta.hasPrev}
-                    className="btn-ghost p-2 disabled:opacity-40"
-                  >
-                    <ChevronLeft className="h-4 w-4" />
-                  </button>
-                  {Array.from({ length: data.meta.totalPages }, (_, i) => i + 1)
-                    .filter((p) => Math.abs(p - data.meta.page) <= 2)
-                    .map((p) => (
-                      <button
-                        key={p}
-                        onClick={() => setPage(p)}
-                        className={`h-8 w-8 rounded-lg text-sm font-medium transition-colors ${
-                          p === data.meta.page
-                            ? 'bg-primary-600 text-white'
-                            : 'text-gray-600 hover:bg-gray-100'
-                        }`}
-                      >
-                        {p}
-                      </button>
-                    ))}
-                  <button
-                    onClick={() => setPage((p) => p + 1)}
-                    disabled={!data.meta.hasNext}
-                    className="btn-ghost p-2 disabled:opacity-40"
-                  >
-                    <ChevronRight className="h-4 w-4" />
-                  </button>
+        {isLoading && !isDemo && (
+          <div className={styles.stateBox}>
+            <div className={styles.spinner} aria-hidden="true" />
+            Carregando usuários…
+          </div>
+        )}
+
+        {isError && !isDemo && (
+          <div className={styles.stateBox}>
+            Falha ao carregar usuários
+          </div>
+        )}
+
+        {displayData?.data.map(user => {
+          const clr = avatarColors[user.role] ?? avatarColors.user
+          const isSuspended = user.status === 'suspended'
+
+          return (
+            <div key={user.id} className={styles.tRow} style={isSuspended ? { opacity: 0.45 } : {}}>
+              <div className={styles.userCell}>
+                <div className={styles.ava} style={{ background: clr.bg, color: clr.color }}>
+                  {initials(user.name)}
+                </div>
+                <div style={{ minWidth: 0 }}>
+                  <div className={styles.uName} style={isSuspended ? { textDecoration: 'line-through' } : {}}>
+                    {user.name}
+                  </div>
+                  <div className={styles.uEmail}>{user.email}</div>
                 </div>
               </div>
-            )}
-          </>
-        )}
+
+              <div>
+                <span className={`${styles.chip} ${
+                  user.role === 'admin'   ? styles.cAdmin   :
+                  user.role === 'manager' ? styles.cManager : styles.cUser
+                }`}>
+                  {user.role}
+                </span>
+              </div>
+
+              <div className={`${styles.statusCell} ${
+                user.status === 'active'    ? styles.sActive    :
+                user.status === 'pending'   ? styles.sPending   : styles.sSuspended
+              }`}>
+                <div className={styles.sDot} />
+                <span className={styles.sTxt}>{user.status}</span>
+              </div>
+
+              <div className={styles.dateCell}>{fmtDate(user.lastLoginAt)}</div>
+
+              <div className={styles.rowActions}>
+                <button className={styles.rowBtn} aria-label={`Editar ${user.name}`}>
+                  <i className="ti ti-edit" aria-hidden="true" />
+                </button>
+                <button className={styles.rowBtn} aria-label="Mais opções">
+                  <i className="ti ti-dots" aria-hidden="true" />
+                </button>
+              </div>
+            </div>
+          )
+        })}
       </div>
+
+      {displayData && (
+        <div className={styles.tableFoot}>
+          <span className={styles.footTxt}>
+            Mostrando 1–{displayData.data.length} de {displayData.total.toLocaleString('pt-BR')}
+          </span>
+          {displayData.nextCursor && (
+            <span className={styles.cursorTag}>cursor: {displayData.nextCursor.slice(0, 12)}…</span>
+          )}
+          <div className={styles.pag}>
+            <button className={`${styles.pagBtn} ${styles.pagActive}`}>1</button>
+            <button className={styles.pagBtn}>2</button>
+            <button className={styles.pagBtn}>3</button>
+            <button className={styles.pagBtn} aria-label="Próxima página">
+              <i className="ti ti-arrow-right" aria-hidden="true" style={{ fontSize: 12 }} />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
-  );
+  )
 }

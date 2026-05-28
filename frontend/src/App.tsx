@@ -1,48 +1,46 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { useEffect } from 'react';
-import { useAuthStore } from '@/store/auth.store';
-import { ProtectedRoute } from '@/routes/ProtectedRoute';
-import { GuestRoute } from '@/routes/GuestRoute';
-import { AppLayout } from '@/components/layout/AppLayout';
-import { AuthLayout } from '@/components/layout/AuthLayout';
-import { LoginPage } from '@/pages/auth/LoginPage';
-import { RegisterPage } from '@/pages/auth/RegisterPage';
-import { DashboardPage } from '@/pages/dashboard/DashboardPage';
-import { ProfilePage } from '@/pages/profile/ProfilePage';
-import { UsersPage } from '@/pages/users/UsersPage';
-import { NotFoundPage } from '@/pages/NotFoundPage';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { useAuthStore } from './store/authStore'
+import LoginPage from './pages/auth/LoginPage'
+import RegisterPage from './pages/auth/RegisterPage'
+import DashboardPage from './pages/dashboard/DashboardPage'
+import UsersPage from './pages/users/UsersPage'
+import { Layout } from './components/layouts/Layout'
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 30_000,
+      retry: 1,
+      refetchOnWindowFocus: false,
+    },
+  },
+})
+
+function ProtectedRoute({ children }: { children: React.ReactNode }) {
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
+  return isAuthenticated ? <>{children}</> : <Navigate to="/login" replace />
+}
+
+function PublicRoute({ children }: { children: React.ReactNode }) {
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
+  return isAuthenticated ? <Navigate to="/dashboard" replace /> : <>{children}</>
+}
 
 export default function App() {
-  const fetchCurrentUser = useAuthStore((s) => s.fetchCurrentUser);
-
-  useEffect(() => {
-    // Try to restore session on app load
-    fetchCurrentUser();
-  }, [fetchCurrentUser]);
-
   return (
-    <BrowserRouter>
-      <Routes>
-        {/* Auth routes (guest only) */}
-        <Route element={<GuestRoute />}>
-          <Route element={<AuthLayout />}>
-            <Route path="/login" element={<LoginPage />} />
-            <Route path="/register" element={<RegisterPage />} />
-          </Route>
-        </Route>
-
-        {/* Protected routes */}
-        <Route element={<ProtectedRoute />}>
-          <Route element={<AppLayout />}>
-            <Route path="/" element={<Navigate to="/dashboard" replace />} />
+    <QueryClientProvider client={queryClient}>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/login"    element={<PublicRoute><LoginPage /></PublicRoute>} />
+          <Route path="/register" element={<PublicRoute><RegisterPage /></PublicRoute>} />
+          <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
             <Route path="/dashboard" element={<DashboardPage />} />
-            <Route path="/profile" element={<ProfilePage />} />
-            <Route path="/users" element={<UsersPage />} />
+            <Route path="/users"     element={<UsersPage />} />
           </Route>
-        </Route>
-
-        <Route path="*" element={<NotFoundPage />} />
-      </Routes>
-    </BrowserRouter>
-  );
+          <Route path="*" element={<Navigate to="/dashboard" replace />} />
+        </Routes>
+      </BrowserRouter>
+    </QueryClientProvider>
+  )
 }
