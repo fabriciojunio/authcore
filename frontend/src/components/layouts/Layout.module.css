@@ -124,6 +124,8 @@
 .topbarDate { font-size: 12px; color: var(--muted); }
 .topbarDivider { width: 1px; height: 16px; background: var(--line); }
 
+.notifWrap { position: relative; }
+
 .notifBtn {
   width: 32px; height: 32px;
   border-radius: var(--radius);
@@ -147,6 +149,79 @@
   display: flex; align-items: center; justify-content: center;
   border: 2px solid var(--bg);
 }
+
+.notifPanel {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  width: 320px;
+  background: var(--s1);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+  z-index: 100;
+  overflow: hidden;
+  animation: fadeUp 0.15s ease;
+}
+
+.notifHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--line);
+}
+.notifTitle { font-size: 13px; color: var(--txt); font-weight: 500; }
+.notifCount {
+  font-size: 10px;
+  color: var(--accent2);
+  background: rgba(100,96,240,0.12);
+  border-radius: var(--radius-sm);
+  padding: 2px 8px;
+}
+
+.notifList { max-height: 340px; overflow-y: auto; }
+
+.notifItem {
+  width: 100%;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 13px 16px;
+  border-bottom: 1px solid var(--line);
+  background: transparent;
+  border-left: none; border-right: none; border-top: none;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+.notifItem:last-child { border-bottom: none; }
+.notifItem:hover { background: var(--s2); }
+
+.notifUnread { background: rgba(100,96,240,0.04); }
+
+.notifBody { flex: 1; min-width: 0; }
+.notifItemTitle { font-size: 12px; color: var(--txt); margin-bottom: 2px; }
+.notifMsg { font-size: 11px; color: var(--muted); line-height: 1.5; }
+
+.notifDot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--accent2);
+  flex-shrink: 0;
+  margin-top: 4px;
+}
+
+.notifEmpty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 40px 20px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.notifEmpty i { font-size: 22px; }
 
 .wsStrip {
   background: rgba(34,197,94,0.05);
