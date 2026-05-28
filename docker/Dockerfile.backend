@@ -1,0 +1,66 @@
+# ─── Stage 1: Dependencies ───────────────────────────────────────
+FROM node:20-alpine AS deps
+LABEL maintainer="enterprise@company.com"
+
+RUN apk add --no-cache libc6-compat
+WORKDIR /app
+
+COPY package*.json ./
+RUN npm ci --only=production --frozen-lockfile && npm cache clean --force
+
+# ─── Stage 2: Builder ────────────────────────────────────────────
+FROM node:20-alpine AS builder
+WORKDIR /app
+
+COPY package*.json ./
+RUN npm ci --frozen-lockfile
+
+COPY tsconfig.json ./
+COPY src/ ./src/
+
+RUN npm run build
+
+# ─── Stage 3: Production ─────────────────────────────────────────
+FROM node:20-alpine AS production
+LABEL org.opencontainers.image.title="Enterprise API"
+LABEL org.opencontainers.image.version="1.0.0"
+
+# Security: Create non-root user
+RUN addgroup --system --gid 1001 nodejs && \
+    adduser --system --uid 1001 --ingroup nodejs appuser
+
+# Install only necessary runtime deps
+RUN apk add --no-cache \
+    dumb-init \
+    wget \
+    && rm -rf /var/cache/apk/*
+
+WORKDIR /app
+
+# Copy production dependencies
+COPY --from=deps --chown=appuser:nodejs /app/node_modules ./node_modules
+
+# Copy compiled application
+COPY --from=builder --chown=appuser:nodejs /app/dist ./dist
+COPY --chown=appuser:nodejs package.json ./
+
+# Create necessary directories with proper ownership
+RUN mkdir -p logs uploads && \
+    chown -R appuser:nodejs logs uploads
+
+# Switch to non-root user
+USER appuser
+
+# Security: Don't run as root
+ENV NODE_ENV=production \
+    PORT=3001
+
+EXPOSE 3001
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD wget --no-verbose --tries=1 --spider http://localhost:3001/health/live || exit 1
+
+# Use dumb-init to handle PID 1 properly
+ENTRYPOINT ["dumb-init", "--"]
+CMD ["node", "dist/server.js"]
