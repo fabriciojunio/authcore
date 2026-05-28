@@ -2,7 +2,7 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
 
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   plugins: [react()],
   resolve: {
     alias: {
@@ -20,7 +20,7 @@ export default defineConfig({
   },
   build: {
     outDir: 'dist',
-    sourcemap: false, // No sourcemaps in production
+    sourcemap: false,
     rollupOptions: {
       output: {
         manualChunks: {
@@ -31,12 +31,8 @@ export default defineConfig({
       },
     },
   },
-  define: {
-    // Remove console in production build
-    'console.log': 'void 0',
-    'console.info': 'void 0',
-    'console.debug': 'void 0',
-    'console.warn': 'void 0',
-    'console.error': 'void 0',
+  esbuild: {
+    // Remove console calls in production
+    drop: mode === 'production' ? ['console', 'debugger'] : [],
   },
-});
+}));
