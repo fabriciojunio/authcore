@@ -1,182 +1,151 @@
-import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
-import { Eye, EyeOff, UserPlus, CheckCircle2 } from 'lucide-react';
-import { useAuthStore } from '@/store/auth.store';
-import { Alert, FormField } from '@/components/ui';
+import { useId } from 'react'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { z } from 'zod'
+import { Link } from 'react-router-dom'
+import { useAuthStore } from '../../store/authStore'
+import styles from '../AuthPage.module.css'
 
-const registerSchema = z.object({
-  name: z.string().min(2, 'Name must be at least 2 characters').max(100),
-  email: z.string().email('Invalid email address'),
-  password: z
-    .string()
-    .min(8, 'At least 8 characters')
-    .regex(/[A-Z]/, 'One uppercase letter')
-    .regex(/[0-9]/, 'One number')
-    .regex(/[^A-Za-z0-9]/, 'One special character'),
-  confirmPassword: z.string(),
-}).refine((d) => d.password === d.confirmPassword, {
-  message: 'Passwords do not match',
-  path: ['confirmPassword'],
-});
+const schema = z.object({
+  firstName: z.string().min(2, 'Mínimo 2 caracteres'),
+  lastName:  z.string().min(2, 'Mínimo 2 caracteres'),
+  email:     z.string().email('E-mail inválido'),
+  password:  z.string()
+    .min(8, 'Mínimo 8 caracteres')
+    .regex(/[A-Z]/, 'Adicione uma letra maiúscula')
+    .regex(/[0-9]/, 'Adicione um número')
+    .regex(/[^A-Za-z0-9]/, 'Adicione um caractere especial'),
+  confirm: z.string(),
+}).refine(d => d.password === d.confirm, {
+  message: 'As senhas não coincidem',
+  path: ['confirm'],
+})
+type FormData = z.infer<typeof schema>
 
-type RegisterForm = z.infer<typeof registerSchema>;
+const checks = [
+  'JWT com refresh token automático',
+  'Controle de acesso por papel',
+  'Notificações em tempo real',
+  'Auditoria de todas as ações',
+]
 
-const passwordRules = [
-  { id: 'length', label: 'At least 8 characters', check: (v: string) => v.length >= 8 },
-  { id: 'upper', label: 'One uppercase letter', check: (v: string) => /[A-Z]/.test(v) },
-  { id: 'number', label: 'One number', check: (v: string) => /[0-9]/.test(v) },
-  { id: 'special', label: 'One special character', check: (v: string) => /[^A-Za-z0-9]/.test(v) },
-];
+function strengthLevel(pw: string): number {
+  let s = 0
+  if (pw.length >= 8)           s++
+  if (/[A-Z]/.test(pw))         s++
+  if (/[0-9]/.test(pw))         s++
+  if (/[^A-Za-z0-9]/.test(pw))  s++
+  return s
+}
 
-export function RegisterPage() {
-  const [showPassword, setShowPassword] = useState(false);
-  const [success, setSuccess] = useState(false);
-  const { register: registerUser, isLoading, error, clearError } = useAuthStore();
-  const navigate = useNavigate();
+export default function RegisterPage() {
+  const { register: registerUser, isLoading, error, clearError } = useAuthStore()
+  const firstId = useId(); const lastId = useId()
+  const emailId = useId(); const passId = useId(); const confId = useId()
 
-  const {
-    register,
-    handleSubmit,
-    watch,
-    formState: { errors },
-  } = useForm<RegisterForm>({ resolver: zodResolver(registerSchema) });
+  const { register, handleSubmit, watch, formState: { errors } } = useForm<FormData>({
+    resolver: zodResolver(schema),
+  })
 
-  const passwordValue = watch('password', '');
+  const pw = watch('password') ?? ''
+  const strength = strengthLevel(pw)
+  const strengthLabel = ['', 'Fraca', 'Razoável', 'Boa', 'Forte'][strength]
 
-  const onSubmit = async (data: RegisterForm) => {
-    clearError();
-    try {
-      await registerUser(data.name, data.email, data.password, data.confirmPassword);
-      setSuccess(true);
-      setTimeout(() => navigate('/login'), 3000);
-    } catch {
-      // Error handled in store
-    }
-  };
-
-  if (success) {
-    return (
-      <div className="animate-slide-up text-center">
-        <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
-          <CheckCircle2 className="h-8 w-8 text-green-600" />
-        </div>
-        <h2 className="text-xl font-bold text-gray-900">Account created!</h2>
-        <p className="mt-2 text-sm text-gray-500">
-          Please check your email to verify your account. Redirecting to login...
-        </p>
-      </div>
-    );
+  const onSubmit = async (data: FormData) => {
+    clearError()
+    await registerUser(`${data.firstName} ${data.lastName}`, data.email, data.password)
   }
 
   return (
-    <div className="animate-slide-up">
-      <div className="mb-8">
-        <h2 className="text-2xl font-bold text-gray-900">Create an account</h2>
-        <p className="mt-1 text-sm text-gray-500">Get started for free today</p>
+    <div className={styles.page}>
+      <div className={styles.left}>
+        <div className={styles.wordmark}>Enterprise Platform</div>
+
+        <div className={styles.leftMid}>
+          <h1 className={styles.headline}>
+            Comece agora.<br />
+            <em className={styles.headlineEm}>Sem complicação.</em>
+          </h1>
+          <p className={styles.sub}>
+            Crie sua conta e tenha acesso imediato ao painel de controle completo da plataforma.
+          </p>
+          <div className={styles.checklist}>
+            {checks.map(c => (
+              <div key={c} className={styles.checkItem}>
+                <div className={styles.checkIco}>✓</div>
+                {c}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className={styles.leftFoot}>
+          Já tem conta? <Link to="/login">Entrar</Link>
+        </div>
       </div>
 
-      {error && <Alert type="error" message={error} className="mb-6" />}
+      <div className={styles.right}>
+        <div className={styles.formWrap}>
+          <div className={styles.formTitle}>Criar conta</div>
+          <div className={styles.formSub}>Preencha os dados para começar</div>
 
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
-        <FormField label="Full name" error={errors.name?.message} required>
-          <input
-            {...register('name')}
-            type="text"
-            autoComplete="name"
-            placeholder="John Doe"
-            className={`input ${errors.name ? 'input-error' : ''}`}
-          />
-        </FormField>
+          {error && (
+            <div role="alert" aria-live="assertive" className={styles.errorBanner}>{error}</div>
+          )}
 
-        <FormField label="Work email" error={errors.email?.message} required>
-          <input
-            {...register('email')}
-            type="email"
-            autoComplete="email"
-            placeholder="you@company.com"
-            className={`input ${errors.email ? 'input-error' : ''}`}
-          />
-        </FormField>
-
-        <FormField label="Password" error={errors.password?.message} required>
-          <div className="relative">
-            <input
-              {...register('password')}
-              type={showPassword ? 'text' : 'password'}
-              autoComplete="new-password"
-              placeholder="Create a strong password"
-              className={`input pr-10 ${errors.password ? 'input-error' : ''}`}
-            />
-            <button
-              type="button"
-              onClick={() => setShowPassword((v) => !v)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-            >
-              {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-            </button>
-          </div>
-          {/* Password strength indicators */}
-          {passwordValue && (
-            <div className="mt-2 grid grid-cols-2 gap-1">
-              {passwordRules.map((rule) => (
-                <div key={rule.id} className="flex items-center gap-1.5">
-                  <div
-                    className={`h-1.5 w-1.5 rounded-full ${
-                      rule.check(passwordValue) ? 'bg-green-500' : 'bg-gray-200'
-                    }`}
-                  />
-                  <span
-                    className={`text-xs ${
-                      rule.check(passwordValue) ? 'text-green-700' : 'text-gray-400'
-                    }`}
-                  >
-                    {rule.label}
-                  </span>
-                </div>
-              ))}
+          <form onSubmit={handleSubmit(onSubmit)} noValidate>
+            <div className={styles.row2}>
+              <div className={styles.field}>
+                <label htmlFor={firstId} className={styles.fieldLabel}>Nome</label>
+                <input id={firstId} type="text" className={styles.fieldInp} placeholder="João" autoComplete="given-name" aria-required="true" {...register('firstName')} />
+                {errors.firstName && <span className={styles.fieldError} role="alert">{errors.firstName.message}</span>}
+              </div>
+              <div className={styles.field}>
+                <label htmlFor={lastId} className={styles.fieldLabel}>Sobrenome</label>
+                <input id={lastId} type="text" className={styles.fieldInp} placeholder="Silva" autoComplete="family-name" aria-required="true" {...register('lastName')} />
+                {errors.lastName && <span className={styles.fieldError} role="alert">{errors.lastName.message}</span>}
+              </div>
             </div>
-          )}
-        </FormField>
 
-        <FormField label="Confirm password" error={errors.confirmPassword?.message} required>
-          <input
-            {...register('confirmPassword')}
-            type="password"
-            autoComplete="new-password"
-            placeholder="Repeat your password"
-            className={`input ${errors.confirmPassword ? 'input-error' : ''}`}
-          />
-        </FormField>
+            <div className={styles.field}>
+              <label htmlFor={emailId} className={styles.fieldLabel}>E-mail corporativo</label>
+              <input id={emailId} type="email" className={styles.fieldInp} placeholder="joao@empresa.com" autoComplete="email" aria-required="true" {...register('email')} />
+              {errors.email && <span className={styles.fieldError} role="alert">{errors.email.message}</span>}
+            </div>
 
-        <p className="text-xs text-gray-500">
-          By creating an account, you agree to our{' '}
-          <a href="#" className="text-primary-600 hover:underline">Terms of Service</a>{' '}
-          and{' '}
-          <a href="#" className="text-primary-600 hover:underline">Privacy Policy</a>.
-        </p>
+            <div className={styles.field}>
+              <label htmlFor={passId} className={styles.fieldLabel}>Senha</label>
+              <input id={passId} type="password" className={styles.fieldInp} placeholder="••••••••" autoComplete="new-password" aria-required="true" {...register('password')} />
+              {pw && (
+                <div className={styles.strength}>
+                  <div className={styles.strengthBars}>
+                    {[1,2,3,4].map(i => (
+                      <div key={i} className={`${styles.sBar} ${i <= strength ? styles.sBarOn : ''}`} />
+                    ))}
+                  </div>
+                  {strengthLabel && <div className={styles.strengthTxt}>{strengthLabel}</div>}
+                </div>
+              )}
+              {errors.password && <span className={styles.fieldError} role="alert">{errors.password.message}</span>}
+            </div>
 
-        <button type="submit" disabled={isLoading} className="btn-primary w-full">
-          {isLoading ? (
-            <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-            </svg>
-          ) : (
-            <UserPlus className="h-4 w-4" />
-          )}
-          {isLoading ? 'Creating account...' : 'Create account'}
-        </button>
-      </form>
+            <div className={styles.field} style={{ marginBottom: 8 }}>
+              <label htmlFor={confId} className={styles.fieldLabel}>Confirmar senha</label>
+              <input id={confId} type="password" className={styles.fieldInp} placeholder="••••••••" autoComplete="new-password" aria-required="true" {...register('confirm')} />
+              {errors.confirm && <span className={styles.fieldError} role="alert">{errors.confirm.message}</span>}
+            </div>
 
-      <p className="mt-6 text-center text-sm text-gray-500">
-        Already have an account?{' '}
-        <Link to="/login" className="font-medium text-primary-600 hover:text-primary-700">
-          Sign in
-        </Link>
-      </p>
+            <button type="submit" className={styles.btnPrimaryFull} disabled={isLoading} aria-busy={isLoading}>
+              {isLoading ? <span className={styles.spinner} /> : 'Criar conta'}
+            </button>
+
+            <div className={styles.terms}>
+              Ao criar uma conta você concorda com os <a href="#">termos de uso</a><br />
+              e <a href="#">política de privacidade</a>.
+            </div>
+          </form>
+        </div>
+      </div>
     </div>
-  );
+  )
 }
