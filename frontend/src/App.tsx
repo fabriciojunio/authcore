@@ -5,6 +5,8 @@ import LoginPage from './pages/auth/LoginPage'
 import RegisterPage from './pages/auth/RegisterPage'
 import DashboardPage from './pages/dashboard/DashboardPage'
 import UsersPage from './pages/users/UsersPage'
+import AuditPage from './pages/audit/AuditPage'
+import SettingsPage from './pages/settings/SettingsPage'
 import { Layout } from './components/layouts/Layout'
 
 const queryClient = new QueryClient({
@@ -37,6 +39,8 @@ export default function App() {
           <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
             <Route path="/dashboard" element={<DashboardPage />} />
             <Route path="/users"     element={<UsersPage />} />
+            <Route path="/audit"     element={<AuditPage />} />
+            <Route path="/settings"  element={<SettingsPage />} />
           </Route>
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>

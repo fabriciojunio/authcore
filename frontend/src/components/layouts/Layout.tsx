@@ -1,3 +1,4 @@
+import { useState, useRef, useEffect } from 'react'
 import { Outlet, NavLink, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../../store/authStore'
 import { useNotificationStore } from '../../store/notificationStore'
@@ -21,11 +22,40 @@ const navGroups = [
   },
 ]
 
+const typeIcon: Record<string, string> = {
+  success: 'ti-circle-check',
+  warning: 'ti-alert-triangle',
+  error:   'ti-circle-x',
+  info:    'ti-info-circle',
+}
+const typeColor: Record<string, string> = {
+  success: '#22c55e',
+  warning: '#f59e0b',
+  error:   '#ef4444',
+  info:    '#8b87ff',
+}
+
 export function Layout() {
-  const { user, isDemo, logout } = useAuthStore()
-  const { unreadCount }          = useNotificationStore()
-  const navigate                 = useNavigate()
-  const { isConnected }          = useWebSocket()
+  const { user, isDemo, logout }            = useAuthStore()
+  const { notifications, unreadCount, markAsRead, fetchNotifications } = useNotificationStore()
+  const navigate                            = useNavigate()
+  const { isConnected }                     = useWebSocket()
+  const [notifOpen, setNotifOpen]           = useState(false)
+  const notifRef                            = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    fetchNotifications(isDemo)
+  }, [isDemo, fetchNotifications])
+
+  useEffect(() => {
+    function onClickOutside(e: MouseEvent) {
+      if (notifRef.current && !notifRef.current.contains(e.target as Node)) {
+        setNotifOpen(false)
+      }
+    }
+    if (notifOpen) document.addEventListener('mousedown', onClickOutside)
+    return () => document.removeEventListener('mousedown', onClickOutside)
+  }, [notifOpen])
 
   const handleLogout = async () => {
     await logout()
@@ -97,15 +127,63 @@ export function Layout() {
           <div className={styles.topbarRight}>
             <span className={styles.topbarDate}>{now}</span>
             <div className={styles.topbarDivider} />
-            <button className={styles.notifBtn} aria-label={`${unreadCount} notificações`}>
-              <i className="ti ti-bell" aria-hidden="true" />
-              {unreadCount > 0 && (
-                <span className={styles.notifBadge}>{unreadCount > 9 ? '9+' : unreadCount}</span>
+
+            <div ref={notifRef} className={styles.notifWrap}>
+              <button
+                className={styles.notifBtn}
+                onClick={() => setNotifOpen(v => !v)}
+                aria-label={`${unreadCount} notificações`}
+                aria-expanded={notifOpen}
+              >
+                <i className="ti ti-bell" aria-hidden="true" />
+                {unreadCount > 0 && (
+                  <span className={styles.notifBadge}>{unreadCount > 9 ? '9+' : unreadCount}</span>
+                )}
+              </button>
+
+              {notifOpen && (
+                <div className={styles.notifPanel} role="dialog" aria-label="Notificações">
+                  <div className={styles.notifHeader}>
+                    <span className={styles.notifTitle}>Notificações</span>
+                    {unreadCount > 0 && (
+                      <span className={styles.notifCount}>{unreadCount} novas</span>
+                    )}
+                  </div>
+
+                  <div className={styles.notifList}>
+                    {notifications.length === 0 ? (
+                      <div className={styles.notifEmpty}>
+                        <i className="ti ti-bell-off" aria-hidden="true" />
+                        Nenhuma notificação
+                      </div>
+                    ) : (
+                      notifications.map(n => (
+                        <button
+                          key={n.id}
+                          className={`${styles.notifItem} ${!n.isRead ? styles.notifUnread : ''}`}
+                          onClick={() => markAsRead(n.id)}
+                        >
+                          <i
+                            className={`ti ${typeIcon[n.type] ?? 'ti-bell'}`}
+                            style={{ color: typeColor[n.type] ?? 'var(--muted)', fontSize: 16, flexShrink: 0 }}
+                            aria-hidden="true"
+                          />
+                          <div className={styles.notifBody}>
+                            <div className={styles.notifItemTitle}>{n.title}</div>
+                            <div className={styles.notifMsg}>{n.message}</div>
+                          </div>
+                          {!n.isRead && <div className={styles.notifDot} />}
+                        </button>
+                      ))
+                    )}
+                  </div>
+                </div>
               )}
-            </button>
-            <button className={styles.iconBtn} aria-label="Configurações">
+            </div>
+
+            <NavLink to="/settings" className={styles.iconBtn} aria-label="Configurações">
               <i className="ti ti-settings" aria-hidden="true" />
-            </button>
+            </NavLink>
           </div>
         </header>
 
@@ -116,8 +194,10 @@ export function Layout() {
           </div>
         ) : (
           <div className={styles.wsStrip}>
-            <span className={isConnected ? styles.wsDot : undefined}
-              style={!isConnected ? { width: 6, height: 6, borderRadius: '50%', background: 'var(--yellow)', flexShrink: 0 } : undefined} />
+            <span
+              className={isConnected ? styles.wsDot : undefined}
+              style={!isConnected ? { width: 6, height: 6, borderRadius: '50%', background: 'var(--yellow)', flexShrink: 0 } : undefined}
+            />
             <span className={styles.wsLabel}>{isConnected ? 'WebSocket ativo' : 'Reconectando…'}</span>
             <span className={styles.wsSep} />
             <span className={styles.wsInfo}>Notificações em tempo real habilitadas</span>
