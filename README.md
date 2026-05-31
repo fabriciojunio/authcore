@@ -174,11 +174,11 @@ Coverage thresholds enforced: 80% lines, 70% branches
 See `backend/.env.example` for all required variables with descriptions.
 
 **Required for production:**
-- `JWT_ACCESS_SECRET` — min 64 chars, cryptographically random
-- `JWT_REFRESH_SECRET` — min 64 chars, different from access secret
-- `ENCRYPTION_KEY` — exactly 32 chars
-- `DB_PASSWORD` — strong password
-- `REDIS_PASSWORD` — strong password
+- `JWT_ACCESS_SECRET`: min 64 chars, cryptographically random
+- `JWT_REFRESH_SECRET`: min 64 chars, different from access secret
+- `ENCRYPTION_KEY`: exactly 32 chars
+- `DB_PASSWORD`: strong password
+- `REDIS_PASSWORD`: strong password
 
 Generate secrets:
 ```bash
