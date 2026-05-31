@@ -12,7 +12,7 @@ export interface AuthUser {
 const DEMO_USER: AuthUser = {
   id: 'demo-01',
   name: 'System Admin',
-  email: 'demo@enterprise.com',
+  email: 'demo@authcore.dev',
   role: 'admin',
   status: 'active',
 }
@@ -38,8 +38,8 @@ export const useAuthStore = create<AuthState>((set) => ({
   error: null,
 
   login: async (email, password) => {
-    // Modo demonstração: qualquer senha "demo" ou email demo@enterprise.com
-    if (email === 'demo@enterprise.com' || password === 'demo') {
+    // Modo demonstração: qualquer senha "demo" ou email demo@authcore.dev
+    if (email === 'demo@authcore.dev' || password === 'demo') {
       set({ user: DEMO_USER, isAuthenticated: true, isDemo: true, isLoading: false, error: null })
       return
     }

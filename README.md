@@ -1,6 +1,6 @@
-# Enterprise Full-Stack Application
+# AuthCore
 
-[![Demo](https://img.shields.io/badge/Demo-frontend--tan--mu--38.vercel.app-000000?style=for-the-badge&logo=vercel&logoColor=white)](https://frontend-tan-mu-38.vercel.app)
+[![Demo](https://img.shields.io/badge/Demo-authcore.vercel.app-000000?style=flat-square&logo=vercel&logoColor=white)](https://frontend-tan-mu-38.vercel.app)
 
 ## Tech Stack
 
@@ -14,7 +14,7 @@
 ## Architecture
 
 ```
-enterprise-project/
+authcore/
 ├── backend/                     # Node.js API
 │   ├── src/
 │   │   ├── config/              # App, DB, Redis, Swagger config
