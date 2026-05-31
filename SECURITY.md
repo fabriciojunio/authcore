@@ -12,7 +12,7 @@
 ### Authentication & Authorization
 - JWT access tokens with 15-minute expiry
 - httpOnly, SameSite=Strict refresh token cookies
-- Refresh token rotation — reuse detected and all sessions invalidated
+- Refresh token rotation: reuse detected and all sessions invalidated
 - Token blacklisting in Redis on logout
 - Account lockout after 5 failed login attempts (15 minutes)
 - Timing-safe credential comparison (prevents user enumeration)
@@ -53,7 +53,7 @@
 
 ## Reporting a Vulnerability
 
-Please report security vulnerabilities to **security@enterprise.com**.
+Please report security vulnerabilities to **fabricioad444@gmail.com**.
 
 Do **not** file a public GitHub issue for security vulnerabilities.
 

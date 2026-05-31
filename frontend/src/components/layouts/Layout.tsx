@@ -79,7 +79,7 @@ export function Layout() {
 
       <aside className={styles.sidebar} role="navigation" aria-label="Navegação principal">
         <div className={styles.brand}>
-          <div className={styles.brandMark}>Enterprise</div>
+          <div className={styles.brandMark}>AuthCore</div>
           <div className={styles.brandSub}>Painel de controle</div>
         </div>
 
@@ -190,7 +190,7 @@ export function Layout() {
         {isDemo ? (
           <div className={styles.demoBanner}>
             <i className="ti ti-info-circle" aria-hidden="true" />
-            Modo demonstração — dados fictícios, sem conexão com o servidor
+            Modo demonstração: dados fictícios, sem conexão com o servidor
           </div>
         ) : (
           <div className={styles.wsStrip}>

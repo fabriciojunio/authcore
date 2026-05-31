@@ -4,11 +4,11 @@ const auditLog = [
   { id: 'a1', actor: 'alice@acme.com',     action: 'user.create',         target: 'bob@corp.io',           ip: '192.168.1.10', time: '28/05 09:14' },
   { id: 'a2', actor: 'System Admin',       action: 'user.role_change',    target: 'diana@startup.dev',     ip: '10.0.0.1',     time: '28/05 08:52' },
   { id: 'a3', actor: 'alice@acme.com',     action: 'user.suspend',        target: 'charlie@example.com',   ip: '192.168.1.10', time: '27/05 17:30' },
-  { id: 'a4', actor: 'bob@corp.io',        action: 'auth.login',          target: '—',                     ip: '203.0.113.42', time: '27/05 16:05' },
+  { id: 'a4', actor: 'bob@corp.io',        action: 'auth.login',          target: '-',                     ip: '203.0.113.42', time: '27/05 16:05' },
   { id: 'a5', actor: 'System Admin',       action: 'settings.update',     target: 'rate_limit',            ip: '10.0.0.1',     time: '27/05 14:20' },
-  { id: 'a6', actor: 'diana@startup.dev',  action: 'auth.password_reset', target: '—',                     ip: '198.51.100.7', time: '27/05 11:48' },
+  { id: 'a6', actor: 'diana@startup.dev',  action: 'auth.password_reset', target: '-',                     ip: '198.51.100.7', time: '27/05 11:48' },
   { id: 'a7', actor: 'System Admin',       action: 'user.delete',         target: 'old-user@example.com',  ip: '10.0.0.1',     time: '26/05 18:00' },
-  { id: 'a8', actor: 'eva@company.com',    action: 'auth.login_failed',   target: '—',                     ip: '172.16.0.55',  time: '26/05 15:33' },
+  { id: 'a8', actor: 'eva@company.com',    action: 'auth.login_failed',   target: '-',                     ip: '172.16.0.55',  time: '26/05 15:33' },
 ]
 
 const actionColor: Record<string, { bg: string; color: string }> = {
