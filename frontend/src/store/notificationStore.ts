@@ -57,7 +57,7 @@ export const useNotificationStore = create<NotificationState>((set) => ({
       const notifs = (res.data.data?.notifications as AppNotification[]) ?? []
       set({ notifications: notifs, unreadCount: notifs.filter(n => !n.isRead).length })
     } catch {
-      // silently fail — notifications are non-critical
+      // silently fail, notifications are non-critical
     } finally {
       set({ isLoading: false })
     }

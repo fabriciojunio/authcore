@@ -28,7 +28,7 @@ function initials(name: string) {
 }
 
 function fmtDate(d: string | null) {
-  if (!d) return '—'
+  if (!d) return '-'
   return new Date(d).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })
 }
 
