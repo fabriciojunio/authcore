@@ -46,3 +46,5 @@ uploads/
 *.pid
 *.seed
 *.pid.lock
+
+.github/java-upgrade/

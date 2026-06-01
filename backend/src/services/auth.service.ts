@@ -85,7 +85,7 @@ export class AuthService {
       if (!dto.totp) {
         throw new ValidationError('Two-factor authentication code required');
       }
-      const isValidTotp = await this.verifyTotp(user.twoFactorSecret!, dto.totp);
+      const isValidTotp = this.verifyTotp(user.twoFactorSecret!, dto.totp);
       if (!isValidTotp) {
         throw new AuthenticationError('Invalid two-factor code');
       }
@@ -166,7 +166,7 @@ export class AuthService {
     await new Promise((resolve) => setTimeout(resolve, 200 + Math.random() * 100));
   }
 
-  private async verifyTotp(secret: string, token: string): Promise<boolean> {
+  private verifyTotp(secret: string, token: string): boolean {
     return speakeasy.totp.verify({
       secret,
       encoding: 'base32',

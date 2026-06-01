@@ -6,6 +6,7 @@ import { AuthenticationError, AuthorizationError } from '@errors/AppError';
 import { UserRole } from '@models/user.entity';
 
 declare global {
+  // eslint-disable-next-line @typescript-eslint/no-namespace
   namespace Express {
     interface Request {
       user?: {

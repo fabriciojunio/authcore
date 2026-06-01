@@ -52,7 +52,7 @@ const consoleTransport = new winston.transports.Console({
     timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
     printf(({ timestamp, level, message, ...meta }) => {
       const metaStr = Object.keys(meta).length ? ` ${JSON.stringify(meta)}` : '';
-      return `${timestamp} [${level}]: ${message}${metaStr}`;
+      return `${String(timestamp)} [${String(level)}]: ${String(message)}${metaStr}`;
     })
   ),
 });
@@ -84,14 +84,16 @@ export const logger = winston.createLogger({
 
 // Override console methods in production to prevent data leaks
 if (IS_PRODUCTION) {
-  const noop = () => {};
+  const noop = (): void => {};
+  /* eslint-disable no-console */
   console.log = noop;
   console.info = noop;
   console.warn = noop;
   console.debug = noop;
   console.trace = noop;
   // Keep console.error but redirect to logger
-  console.error = (...args: unknown[]) => {
+  console.error = (...args: unknown[]): void => {
     logger.error(args.map(String).join(' '));
   };
+  /* eslint-enable no-console */
 }

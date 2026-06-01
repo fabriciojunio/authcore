@@ -1,14 +1,18 @@
 import { Request, Response, NextFunction } from 'express';
 import { ZodSchema, ZodError } from 'zod';
 import { ValidationError } from '@errors/AppError';
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const xss = require('xss') as (input: string) => string;
 
 type RequestTarget = 'body' | 'query' | 'params';
 
 export function validate(schema: ZodSchema, target: RequestTarget = 'body') {
   return (req: Request, _res: Response, next: NextFunction): void => {
     try {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       const parsed = schema.parse(req[target]);
-      req[target] = parsed; // Replace with sanitized/transformed data
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+      req[target] = parsed;
       next();
     } catch (error) {
       if (error instanceof ZodError) {
@@ -25,8 +29,6 @@ export function validate(schema: ZodSchema, target: RequestTarget = 'body') {
 }
 
 export function sanitizeBody(req: Request, _res: Response, next: NextFunction): void {
-  const xss = require('xss');
-  
   function sanitizeValue(value: unknown): unknown {
     if (typeof value === 'string') {
       return xss(value.trim());
@@ -45,6 +47,7 @@ export function sanitizeBody(req: Request, _res: Response, next: NextFunction): 
   }
 
   if (req.body) {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     req.body = sanitizeValue(req.body);
   }
 
