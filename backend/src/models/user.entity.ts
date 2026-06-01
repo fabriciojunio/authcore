@@ -135,7 +135,7 @@ export class User {
     this.lockedUntil = undefined;
   }
 
-  toSafeObject() {
+  toSafeObject(): Record<string, unknown> {
     const { password, refreshTokenHash, twoFactorSecret, ...safe } = this;
     void password;
     void refreshTokenHash;

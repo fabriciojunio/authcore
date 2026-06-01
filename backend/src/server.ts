@@ -23,24 +23,26 @@ async function bootstrap(): Promise<void> {
       logger.info(`API Base: http://localhost:${config.node.port}${config.app.apiPrefix}`);
     });
 
-    // ─── Graceful Shutdown ──────────────────────────────────────────
-    const gracefulShutdown = async (signal: string): Promise<void> => {
+    // Graceful Shutdown
+    const gracefulShutdown = (signal: string): void => {
       logger.info(`Received ${signal}. Starting graceful shutdown...`);
 
-      server.close(async () => {
+      server.close(() => {
         logger.info('HTTP server closed');
 
-        await closeRedis();
-        logger.info('Redis connection closed');
+        void (async (): Promise<void> => {
+          await closeRedis();
+          logger.info('Redis connection closed');
 
-        const { AppDataSource } = await import('./config/database');
-        if (AppDataSource.isInitialized) {
-          await AppDataSource.destroy();
-          logger.info('Database connection closed');
-        }
+          const { AppDataSource } = await import('./config/database');
+          if (AppDataSource.isInitialized) {
+            await AppDataSource.destroy();
+            logger.info('Database connection closed');
+          }
 
-        logger.info('Graceful shutdown completed');
-        process.exit(0);
+          logger.info('Graceful shutdown completed');
+          process.exit(0);
+        })();
       });
 
       // Force shutdown after 30 seconds
@@ -69,4 +71,4 @@ async function bootstrap(): Promise<void> {
   }
 }
 
-bootstrap();
+void bootstrap();

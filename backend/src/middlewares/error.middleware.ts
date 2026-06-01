@@ -25,7 +25,8 @@ function formatZodError(error: ZodError): { field: string; message: string }[] {
   }));
 }
 
-function handleDatabaseError(error: QueryFailedError): AppError {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function handleDatabaseError(error: QueryFailedError<any>): AppError {
   const message = (error as unknown as { detail?: string }).detail ?? '';
   
   if (message.includes('unique constraint') || message.includes('duplicate key')) {

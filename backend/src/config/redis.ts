@@ -21,7 +21,7 @@ export async function initializeRedis(): Promise<RedisClientType> {
     password: config.redis.password,
   }) as RedisClientType;
 
-  redisClient.on('error', (err) => {
+  redisClient.on('error', (err: Error) => {
     logger.error('Redis Client Error', { error: err.message });
   });
 

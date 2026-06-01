@@ -1,13 +1,14 @@
 import path from 'path';
 import { Request, Response } from 'express';
 import { productService } from '@services/product.service';
+import type { CreateProductDto, UpdateProductDto } from '@services/product.service';
 import { HttpStatus, ValidationError } from '@errors/AppError';
 import { upload, processImage, getPublicFilePath } from '@services/upload.service';
 import { ProductStatus } from '@models/product.entity';
 
 export class ProductController {
   async create(req: Request, res: Response): Promise<void> {
-    const product = await productService.createProduct(req.body, req.user!.id);
+    const product = await productService.createProduct(req.body as CreateProductDto, req.user!.id);
     res.status(HttpStatus.CREATED).json({ success: true, data: { product } });
   }
 
@@ -34,14 +35,14 @@ export class ProductController {
   }
 
   async getById(req: Request, res: Response): Promise<void> {
-    const product = await productService.getProductById(req.params['id']!);
+    const product = await productService.getProductById(req.params['id']);
     res.status(HttpStatus.OK).json({ success: true, data: { product } });
   }
 
   async update(req: Request, res: Response): Promise<void> {
     const product = await productService.updateProduct(
-      req.params['id']!,
-      req.body,
+      req.params['id'],
+      req.body as UpdateProductDto,
       req.user!.id,
       req.user!.role
     );
@@ -49,7 +50,7 @@ export class ProductController {
   }
 
   async delete(req: Request, res: Response): Promise<void> {
-    await productService.deleteProduct(req.params['id']!, req.user!.id, req.user!.role);
+    await productService.deleteProduct(req.params['id'], req.user!.id, req.user!.role);
     res.status(HttpStatus.NO_CONTENT).send();
   }
 
@@ -69,7 +70,7 @@ export class ProductController {
       const imageUrl = getPublicFilePath(path.basename(processedPath));
 
       const product = await productService.updateProductImage(
-        req.params['id']!,
+        req.params['id'],
         imageUrl,
         req.user!.id,
         req.user!.role
