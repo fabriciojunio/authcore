@@ -35,7 +35,7 @@ export default function LoginPage() {
   return (
     <div className={styles.page}>
       <div className={styles.left}>
-        <div className={styles.wordmark}>Enterprise Platform</div>
+        <div className={styles.wordmark}>AuthCore</div>
 
         <div className={styles.leftMid}>
           <h1 className={styles.headline}>

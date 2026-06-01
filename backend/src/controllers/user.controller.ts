@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { userService } from '@services/user.service';
+import type { UpdateProfileDto, ChangePasswordDto } from '@services/user.service';
 import { HttpStatus } from '@errors/AppError';
 import { ValidationError } from '@errors/AppError';
 
@@ -13,7 +14,7 @@ export class UserController {
   }
 
   async updateProfile(req: Request, res: Response): Promise<void> {
-    const user = await userService.updateProfile(req.user!.id, req.body);
+    const user = await userService.updateProfile(req.user!.id, req.body as UpdateProfileDto);
     res.status(HttpStatus.OK).json({
       success: true,
       data: { user: user.toSafeObject() },
@@ -21,7 +22,7 @@ export class UserController {
   }
 
   async changePassword(req: Request, res: Response): Promise<void> {
-    await userService.changePassword(req.user!.id, req.body);
+    await userService.changePassword(req.user!.id, req.body as ChangePasswordDto);
     res.status(HttpStatus.OK).json({
       success: true,
       data: { message: 'Password changed successfully' },
@@ -51,7 +52,7 @@ export class UserController {
 
   async getUserById(req: Request, res: Response): Promise<void> {
     const user = await userService.getUserById(
-      req.params['id']!,
+      req.params['id'],
       req.user!.id,
       req.user!.role
     );

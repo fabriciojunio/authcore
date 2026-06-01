@@ -119,7 +119,7 @@ export function applySecurityMiddleware(app: Express): void {
   });
 }
 
-export function authRateLimiter() {
+export function authRateLimiter(): ReturnType<typeof rateLimit> {
   return rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
     max: config.rateLimit.authMax,

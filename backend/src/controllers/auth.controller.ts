@@ -1,10 +1,11 @@
 import { Request, Response } from 'express';
 import { authService } from '@services/auth.service';
 import { HttpStatus } from '@errors/AppError';
+import type { RegisterDto, LoginDto } from '@validators/auth.validator';
 
 export class AuthController {
   async register(req: Request, res: Response): Promise<void> {
-    const result = await authService.register(req.body);
+    const result = await authService.register(req.body as RegisterDto);
     res.status(HttpStatus.CREATED).json({
       success: true,
       data: result,
@@ -13,7 +14,7 @@ export class AuthController {
 
   async login(req: Request, res: Response): Promise<void> {
     const ipAddress = req.ip ?? req.socket.remoteAddress ?? 'unknown';
-    const result = await authService.login(req.body, ipAddress);
+    const result = await authService.login(req.body as LoginDto, ipAddress);
 
     // Set refresh token as httpOnly cookie
     res.cookie('refreshToken', result.tokens.refreshToken, {
@@ -36,7 +37,9 @@ export class AuthController {
 
   async refresh(req: Request, res: Response): Promise<void> {
     // Prefer cookie over body for security
-    const refreshToken = req.cookies?.refreshToken ?? req.body?.refreshToken;
+    const cookies = req.cookies as { refreshToken?: string };
+    const body = req.body as { refreshToken?: string };
+    const refreshToken = cookies.refreshToken ?? body.refreshToken ?? '';
     const tokens = await authService.refresh(refreshToken);
 
     res.cookie('refreshToken', tokens.refreshToken, {
@@ -57,7 +60,9 @@ export class AuthController {
   }
 
   async logout(req: Request, res: Response): Promise<void> {
-    const refreshToken = req.cookies?.refreshToken ?? req.body?.refreshToken ?? '';
+    const cookies = req.cookies as { refreshToken?: string };
+    const body = req.body as { refreshToken?: string };
+    const refreshToken = cookies.refreshToken ?? body.refreshToken ?? '';
     await authService.logout(req.user!.id, refreshToken);
 
     res.clearCookie('refreshToken', { path: '/api/v1/auth/refresh' });
@@ -68,7 +73,7 @@ export class AuthController {
     });
   }
 
-  async me(req: Request, res: Response): Promise<void> {
+  me(req: Request, res: Response): void {
     res.status(HttpStatus.OK).json({
       success: true,
       data: { user: req.user },
