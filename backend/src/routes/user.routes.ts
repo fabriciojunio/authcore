@@ -3,22 +3,23 @@ import { userController } from '@controllers/user.controller';
 import { authenticate, authorize } from '@middlewares/auth.middleware';
 import { validate, sanitizeBody } from '@middlewares/validation.middleware';
 import { UserRole } from '@models/user.entity';
+import { changePasswordSchema } from '@validators/auth.validator';
 import { z } from 'zod';
 
 const router = Router();
 
 const updateProfileSchema = z.object({
-  name: z.string().min(2).max(100).trim().optional(),
-  phone: z.string().max(20).optional(),
-});
-
-const changePasswordSchema = z.object({
-  currentPassword: z.string().min(1),
-  newPassword: z.string().min(8).max(128),
-  confirmNewPassword: z.string(),
-}).refine((d) => d.newPassword === d.confirmNewPassword, {
-  message: 'Passwords do not match',
-  path: ['confirmNewPassword'],
+  name: z
+    .string()
+    .min(2)
+    .max(100)
+    .regex(/^[a-zA-Z\s'-]+$/, 'Name can only contain letters, spaces, hyphens, and apostrophes')
+    .trim()
+    .optional(),
+  phone: z
+    .string()
+    .regex(/^\+?[0-9\s()-]{7,20}$/, 'Invalid phone number')
+    .optional(),
 });
 
 // All user routes require authentication
