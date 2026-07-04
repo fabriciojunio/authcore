@@ -1,10 +1,10 @@
+import bcrypt from 'bcryptjs';
 import { AuthService } from '../../src/services/auth.service';
 import { userRepository } from '../../src/repositories/user.repository';
 import { tokenService } from '../../src/services/token.service';
 import { cacheService } from '../../src/services/cache.service';
 import { User, UserStatus, UserRole } from '../../src/models/user.entity';
 import {
-  ConflictError,
   AuthenticationError,
   ValidationError,
 } from '../../src/errors/AppError';
@@ -40,21 +40,42 @@ describe('AuthService', () => {
         password: 'SecurePass123!',
       });
 
-      expect(result.message).toContain('Registration successful');
+      expect(result.message).toContain('verification instructions');
       expect(mockUserRepo.findByEmail).toHaveBeenCalledWith('test@test.com');
       expect(mockUserRepo.create).toHaveBeenCalledTimes(1);
     });
 
-    it('should throw ConflictError if email already exists', async () => {
+    it('should not reveal that the email already exists (anti-enumeration)', async () => {
       mockUserRepo.findByEmail.mockResolvedValue({ id: 'existing' } as User);
 
-      await expect(
-        authService.register({
-          name: 'Test',
-          email: 'existing@test.com',
-          password: 'Pass123!',
-        })
-      ).rejects.toThrow(ConflictError);
+      const result = await authService.register({
+        name: 'Test',
+        email: 'existing@test.com',
+        password: 'SecurePass123!',
+      });
+
+      // Mesma mensagem genérica do caminho de sucesso e nenhuma criação de conta.
+      expect(result.message).toContain('verification instructions');
+      expect(mockUserRepo.create).not.toHaveBeenCalled();
+    });
+
+    it('should return the exact same message whether or not the email exists', async () => {
+      mockUserRepo.findByEmail.mockResolvedValueOnce(null);
+      mockUserRepo.create.mockResolvedValue({ id: 'uuid-1', email: 'new@test.com' } as User);
+      const created = await authService.register({
+        name: 'New User',
+        email: 'new@test.com',
+        password: 'SecurePass123!',
+      });
+
+      mockUserRepo.findByEmail.mockResolvedValueOnce({ id: 'existing' } as User);
+      const existing = await authService.register({
+        name: 'Existing User',
+        email: 'existing@test.com',
+        password: 'SecurePass123!',
+      });
+
+      expect(created.message).toBe(existing.message);
     });
   });
 
@@ -105,6 +126,53 @@ describe('AuthService', () => {
 
       await expect(
         authService.login({ email: 'wrong@test.com', password: 'Wrong!' }, '127.0.0.1')
+      ).rejects.toThrow(AuthenticationError);
+    });
+
+    it('should run a real bcrypt compare for unknown users (timing-safe, anti-enumeration)', async () => {
+      mockUserRepo.findByEmailWithPassword.mockResolvedValue(null);
+      const compareSpy = jest.spyOn(bcrypt, 'compare');
+
+      await expect(
+        authService.login({ email: 'ghost@test.com', password: 'Whatever123!' }, '127.0.0.1')
+      ).rejects.toThrow(AuthenticationError);
+
+      // Um bcrypt.compare real deve ocorrer mesmo sem usuário, equalizando o tempo.
+      expect(compareSpy).toHaveBeenCalledTimes(1);
+      compareSpy.mockRestore();
+    });
+
+    it('should return the same generic error for unknown user and wrong password', async () => {
+      mockUserRepo.findByEmailWithPassword.mockResolvedValueOnce(null);
+      const unknown = await authService
+        .login({ email: 'ghost@test.com', password: 'Whatever123!' }, '127.0.0.1')
+        .catch((e: Error) => e.message);
+
+      const wrongPwUser = createMockUser({
+        comparePassword: jest.fn().mockResolvedValue(false),
+      });
+      mockUserRepo.findByEmailWithPassword.mockResolvedValueOnce(wrongPwUser);
+      mockUserRepo.save.mockResolvedValue(wrongPwUser);
+      const wrong = await authService
+        .login({ email: 'real@test.com', password: 'WrongPass123!' }, '127.0.0.1')
+        .catch((e: Error) => e.message);
+
+      expect(unknown).toBe('Invalid credentials');
+      expect(wrong).toBe('Invalid credentials');
+    });
+
+    it('should reject invalid 2FA code with a generic auth error', async () => {
+      const mockUser = createMockUser({
+        twoFactorEnabled: true,
+        twoFactorSecret: 'JBSWY3DPEHPK3PXP',
+      });
+      mockUserRepo.findByEmailWithPassword.mockResolvedValue(mockUser);
+
+      await expect(
+        authService.login(
+          { email: 'test@test.com', password: 'Pass123!', totp: '000000' },
+          '127.0.0.1'
+        )
       ).rejects.toThrow(AuthenticationError);
     });
 
