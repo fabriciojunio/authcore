@@ -2,7 +2,7 @@
   "name": "authcore",
   "version": "1.0.0",
   "private": true,
-  "description": "Full-stack auth platform with JWT RS256, 2FA TOTP, RBAC and audit log",
+  "description": "Full-stack auth platform with JWT HS256, 2FA TOTP, RBAC and audit log",
   "workspaces": ["backend", "frontend"],
   "scripts": {
     "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
