@@ -7,7 +7,7 @@
 **Backend:** Node.js · TypeScript · Express · TypeORM · PostgreSQL · Redis  
 **Frontend:** React 18 · TypeScript · Vite · Zustand · React Query  
 **Infrastructure:** Docker · Nginx · GitHub Actions  
-**Security:** Helmet · JWT RS256 · bcrypt · Rate Limiting · CORS · HPP  
+**Security:** Helmet · JWT HS256 · bcrypt · Rate Limiting · CORS · HPP  
 
 ---
 

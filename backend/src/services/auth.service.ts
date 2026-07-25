@@ -1,11 +1,12 @@
+import bcrypt from 'bcryptjs';
 import speakeasy from 'speakeasy';
+import { config } from '@config/app.config';
 import { userRepository } from '@repositories/user.repository';
 import { tokenService } from './token.service';
 import { cacheService } from './cache.service';
 import { User, UserStatus } from '@models/user.entity';
 import {
   AuthenticationError,
-  ConflictError,
   NotFoundError,
   ValidationError,
 } from '@errors/AppError';
@@ -30,15 +31,29 @@ export interface AuthResult {
 }
 
 export class AuthService {
+  // Resposta idêntica em qualquer cenário de cadastro para não revelar
+  // se um e-mail já existe (proteção contra enumeração de usuários).
+  private static readonly REGISTER_MESSAGE =
+    'If the email is valid, verification instructions will be sent.';
+
+  // Hash fictício usado para equalizar o tempo de resposta quando o
+  // usuário não existe, evitando enumeração por timing attack.
+  private dummyHash: string | null = null;
+
   async register(dto: RegisterDto): Promise<{ message: string }> {
-    const existing = await userRepository.findByEmail(dto.email);
+    const email = dto.email.toLowerCase().trim();
+    const existing = await userRepository.findByEmail(email);
+
     if (existing) {
-      throw new ConflictError('Email already in use');
+      // Não revela que o e-mail já existe; um e-mail de "conta já cadastrada"
+      // seria enviado em produção.
+      logger.warn('Registration attempt for existing email', { email });
+      return { message: AuthService.REGISTER_MESSAGE };
     }
 
     const user = await userRepository.create({
       name: dto.name.trim(),
-      email: dto.email.toLowerCase().trim(),
+      email,
       password: dto.password,
       status: UserStatus.PENDING_VERIFICATION,
     });
@@ -46,7 +61,7 @@ export class AuthService {
     // In production: send verification email here
     logger.info('User registered', { userId: user.id, email: user.email });
 
-    return { message: 'Registration successful. Please verify your email.' };
+    return { message: AuthService.REGISTER_MESSAGE };
   }
 
   async login(dto: LoginDto, ipAddress: string): Promise<AuthResult> {
@@ -54,7 +69,7 @@ export class AuthService {
 
     // Consistent timing to prevent user enumeration
     if (!user) {
-      await this.simulatePasswordCheck();
+      await this.simulatePasswordCheck(dto.password);
       throw new AuthenticationError('Invalid credentials');
     }
 
@@ -161,9 +176,24 @@ export class AuthService {
     logger.info('User logged out', { userId });
   }
 
-  private async simulatePasswordCheck(): Promise<void> {
-    // Prevent timing attacks by simulating bcrypt time
-    await new Promise((resolve) => setTimeout(resolve, 200 + Math.random() * 100));
+  private async getDummyHash(): Promise<string> {
+    if (!this.dummyHash) {
+      // Gerado com o mesmo custo de bcrypt configurado para que o tempo de
+      // verificação seja indistinguível do de um usuário real.
+      this.dummyHash = await bcrypt.hash(
+        'authcore-timing-safe-dummy-password',
+        config.security.bcryptRounds
+      );
+    }
+    return this.dummyHash;
+  }
+
+  private async simulatePasswordCheck(candidate: string): Promise<void> {
+    // Executa um bcrypt.compare real contra um hash fictício. O custo de CPU
+    // é idêntico ao caminho de um usuário existente, eliminando o vazamento de
+    // tempo que permitiria enumerar quais e-mails estão cadastrados.
+    const dummy = await this.getDummyHash();
+    await bcrypt.compare(candidate, dummy);
   }
 
   private verifyTotp(secret: string, token: string): boolean {
@@ -171,7 +201,9 @@ export class AuthService {
       secret,
       encoding: 'base32',
       token,
-      window: 2,
+      // Janela de 1 passo (+/-30s) reduz a superfície de reuso/força bruta de
+      // códigos TOTP mantendo tolerância a relógios levemente dessincronizados.
+      window: 1,
     });
   }
 }
