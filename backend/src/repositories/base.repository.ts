@@ -63,10 +63,20 @@ export abstract class BaseRepository<T extends { id: string }> {
     const { page, limit, sortBy = 'createdAt', sortOrder = 'DESC' } = options;
     const skip = (page - 1) * limit;
 
+    // TypeORM nao parametriza nomes de coluna em orderBy: interpolar sortBy
+    // diretamente permitiria injecao de SQL. Validamos contra as colunas reais
+    // da entidade e normalizamos a direcao (allowlist, deny-by-default).
+    const allowedColumns = this.repository.metadata.columns.map((c) => c.propertyName);
+    const fallbackColumn = allowedColumns.includes('createdAt')
+      ? 'createdAt'
+      : (allowedColumns.includes('id') ? 'id' : allowedColumns[0]);
+    const safeSortBy = allowedColumns.includes(sortBy) ? sortBy : fallbackColumn;
+    const safeSortOrder: 'ASC' | 'DESC' = sortOrder === 'ASC' ? 'ASC' : 'DESC';
+
     try {
       let qb = this.repository
         .createQueryBuilder('entity')
-        .orderBy(`entity.${sortBy}`, sortOrder)
+        .orderBy(`entity.${safeSortBy}`, safeSortOrder)
         .skip(skip)
         .take(limit);
 
