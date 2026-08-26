@@ -7,6 +7,11 @@ const { combine, timestamp, errors, json, colorize, printf } = winston.format;
 const LOG_DIR = process.env['LOG_DIR'] ?? './logs';
 const LOG_LEVEL = process.env['LOG_LEVEL'] ?? 'info';
 const IS_PRODUCTION = process.env['NODE_ENV'] === 'production';
+// Durante os testes o logger fica mudo: os transportes de arquivo giram log
+// dentro do repositório e mantêm o processo vivo depois da última asserção, o
+// que obrigava o Jest a rodar com --forceExit e escondia qualquer vazamento de
+// verdade. Nenhum teste depende da saída de log.
+const IS_TEST = process.env['NODE_ENV'] === 'test';
 
 // Mask sensitive fields in log output
 const maskSensitiveData = winston.format((info) => {
@@ -59,7 +64,7 @@ const consoleTransport = new winston.transports.Console({
 
 export const logger = winston.createLogger({
   level: LOG_LEVEL,
-  silent: false,
+  silent: IS_TEST,
   transports: [
     ...fileTransports,
     // ONLY show console logs in development
