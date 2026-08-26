@@ -98,10 +98,21 @@ export class User {
   @Exclude()
   deletedAt?: Date;
 
+  /**
+   * Prefixos de hash bcrypt aceitos como "ja processado".
+   *
+   * bcryptjs emite $2a$; outras implementacoes emitem $2b$, $2y$ ou $2x$.
+   * Testar apenas um prefixo faz a guarda nunca casar, e ai o gancho de update
+   * aplica bcrypt sobre o proprio hash: a senha do usuario muda sozinha a cada
+   * gravacao da entidade, inclusive na gravacao do refresh token que acontece
+   * em todo login bem-sucedido.
+   */
+  private static readonly HASH_JA_APLICADO = /^\$2[abxy]\$/;
+
   @BeforeInsert()
   @BeforeUpdate()
   async hashPassword(): Promise<void> {
-    if (this.password && !this.password.startsWith('$2b$')) {
+    if (this.password && !User.HASH_JA_APLICADO.test(this.password)) {
       this.password = await bcrypt.hash(this.password, config.security.bcryptRounds);
     }
   }
