@@ -39,10 +39,20 @@ export const useNotificationStore = create<NotificationState>((set) => ({
   },
 
   markAsRead: (id) => {
-    set((state) => ({
-      notifications: state.notifications.map((n) => n.id === id ? { ...n, isRead: true } : n),
-      unreadCount: Math.max(0, state.unreadCount - 1),
-    }))
+    set((state) => {
+      // Só desconta quando a notificação existe e ainda estava por ler. Antes
+      // o desconto era incondicional, e dois cliques no mesmo item (ou um
+      // clique num id que não está na lista) derrubavam o contador duas vezes:
+      // o selo mostrava menos pendência do que havia de fato.
+      const alvo = state.notifications.find((n) => n.id === id)
+      if (!alvo || alvo.isRead) return state
+      return {
+        notifications: state.notifications.map((n) =>
+          n.id === id ? { ...n, isRead: true } : n,
+        ),
+        unreadCount: Math.max(0, state.unreadCount - 1),
+      }
+    })
     void api.patch(`/notifications/${id}/read`).catch(() => null)
   },
 

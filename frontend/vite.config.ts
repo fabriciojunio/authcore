@@ -35,4 +35,12 @@ export default defineConfig(({ mode }) => ({
     // Remove console calls in production
     drop: mode === 'production' ? ['console', 'debugger'] : [],
   },
+  test: {
+    // jsdom e necessario porque a camada de token guarda em sessionStorage, e
+    // em ambiente node o acesso lanca em vez de devolver vazio. Sem isso o
+    // teste de logout falharia por motivo que nao tem a ver com a regra.
+    environment: 'jsdom',
+    globals: true,
+    include: ['src/**/*.{test,spec}.{ts,tsx}'],
+  },
 }));

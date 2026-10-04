@@ -30,6 +30,30 @@ interface AuthState {
   clearError: () => void
 }
 
+/**
+ * Confere a forma da resposta antes de confiar nela.
+ *
+ * Sem isto, uma resposta 200 com corpo fora do contrato fazia o
+ * desestruturamento lancar TypeError dentro do `try`, o `catch` tratava como
+ * falha de credencial e a tela exibia "Cannot read properties of undefined
+ * (reading 'accessToken')" para o usuario. Erro de JavaScript na tela de login
+ * nao diz nada a quem esta tentando entrar, e diz demais a quem esta olhando.
+ */
+function lerSessao(corpo: unknown): { user: AuthUser; tokens: { accessToken: string; refreshToken: string } } {
+  const dados = (corpo as { data?: { data?: unknown } })?.data?.data as
+    | { user?: AuthUser; tokens?: { accessToken?: string; refreshToken?: string } }
+    | undefined
+
+  const user = dados?.user
+  const accessToken = dados?.tokens?.accessToken
+  const refreshToken = dados?.tokens?.refreshToken
+
+  if (!user || !accessToken || !refreshToken) {
+    throw { message: 'Resposta inesperada do servidor', code: 'RESPOSTA_INVALIDA' }
+  }
+  return { user, tokens: { accessToken, refreshToken } }
+}
+
 export const useAuthStore = create<AuthState>((set) => ({
   user: null,
   isAuthenticated: false,
@@ -46,8 +70,7 @@ export const useAuthStore = create<AuthState>((set) => ({
 
     set({ isLoading: true, error: null })
     try {
-      const res = await api.post('/auth/login', { email, password })
-      const { user, tokens } = res.data.data
+      const { user, tokens } = lerSessao(await api.post('/auth/login', { email, password }))
       setTokens(tokens.accessToken, tokens.refreshToken)
       set({ user, isAuthenticated: true, isDemo: false, isLoading: false })
     } catch (err: unknown) {
@@ -64,8 +87,9 @@ export const useAuthStore = create<AuthState>((set) => ({
   register: async (name, email, password) => {
     set({ isLoading: true, error: null })
     try {
-      const res = await api.post('/auth/register', { name, email, password })
-      const { user, tokens } = res.data.data
+      const { user, tokens } = lerSessao(
+        await api.post('/auth/register', { name, email, password }),
+      )
       setTokens(tokens.accessToken, tokens.refreshToken)
       set({ user, isAuthenticated: true, isDemo: false, isLoading: false })
     } catch (err: unknown) {
@@ -79,6 +103,11 @@ export const useAuthStore = create<AuthState>((set) => ({
     const { isDemo } = useAuthStore.getState()
     try {
       if (!isDemo) await api.post('/auth/logout')
+    } catch {
+      // Sair nunca falha. A revogacao no servidor e desejavel, mas o estado
+      // local ja foi derrubado logo abaixo: repropagar o erro deixaria a tela
+      // com uma promessa recusada e sem ninguem para tratar, e o usuario
+      // continuaria vendo a sessao como valida.
     } finally {
       clearTokens()
       set({ user: null, isAuthenticated: false, isDemo: false, error: null })

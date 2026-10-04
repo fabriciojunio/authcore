@@ -114,6 +114,9 @@ jobs:
           SMTP_PASSWORD: test
           ALLOWED_ORIGINS: http://localhost:3000
 
+      - name: Frontend tests
+        run: npm test --workspace=frontend
+
       - name: Upload coverage report
         uses: codecov/codecov-action@v3
         with:
@@ -163,12 +166,16 @@ jobs:
       - name: npm audit (high and above)
         run: npm audit --audit-level=high
 
-  # Publicacao da imagem Docker apenas na main
+  # Publicacao da imagem Docker apenas no branch padrao.
+  #
+  # A condicao apontava para refs/heads/main, mesmo erro que o gatilho do
+  # fluxo tinha: o branch padrao deste repositorio e master. O job aparecia
+  # na definicao e era sempre pulado, sem nada avisando.
   docker:
     name: Build Docker Image
     runs-on: ubuntu-latest
     needs: [test, build, security]
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/master'
 
     permissions:
       contents: read
