@@ -197,6 +197,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # O driver padrao do Docker no runner nao sabe exportar cache, e a etapa
+      # de build pede cache do GitHub Actions. Sem o buildx a execucao morre em
+      # "Cache export is not supported for the docker driver", que nao diz nada
+      # sobre o Dockerfile e manda procurar defeito no lugar errado.
+      - name: Preparar o buildx
+        uses: docker/setup-buildx-action@v3
+
       - name: Log in to Container Registry
         uses: docker/login-action@v3
         with:
