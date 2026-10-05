@@ -1,66 +1,71 @@
-# ─── Stage 1: Dependencies ───────────────────────────────────────
+# Imagem da API.
+#
+# O contexto de build e a RAIZ do repositorio, e nao a pasta backend. O projeto
+# e um workspace npm: o package-lock.json vive na raiz e e o unico que existe.
+# Com o contexto em backend/ o `npm ci` morria em "can only install with an
+# existing package-lock.json", mensagem que manda procurar defeito no lugar
+# errado, porque o lockfile existe, so nao esta ali.
+
+# --- Estagio 1: dependencias de producao --------------------------------
 FROM node:20-alpine AS deps
-LABEL maintainer="enterprise@company.com"
 
 RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
-COPY package*.json ./
-RUN npm ci --only=production --frozen-lockfile && npm cache clean --force
+# So os manifestos primeiro: assim a camada de instalacao so e refeita quando
+# uma dependencia muda, e nao a cada alteracao de codigo.
+COPY package.json package-lock.json ./
+COPY backend/package.json ./backend/
 
-# ─── Stage 2: Builder ────────────────────────────────────────────
+# --omit=dev no lugar de --only=production, que esta obsoleto. O
+# --frozen-lockfile saiu porque e opcao do yarn: o npm a ignora em silencio, e
+# quem lia a linha achava que havia uma garantia que nao existia. Quem congela
+# aqui e o proprio `npm ci`, que falha se o lockfile nao bater com o manifesto.
+RUN npm ci --omit=dev --workspace backend --include-workspace-root \
+    && npm cache clean --force
+
+# --- Estagio 2: compilacao ----------------------------------------------
 FROM node:20-alpine AS builder
 WORKDIR /app
 
-COPY package*.json ./
-RUN npm ci --frozen-lockfile
+COPY package.json package-lock.json ./
+COPY backend/package.json ./backend/
+RUN npm ci --workspace backend --include-workspace-root
 
-COPY tsconfig.json ./
-COPY src/ ./src/
+COPY backend/tsconfig.json ./backend/
+COPY backend/src/ ./backend/src/
 
-RUN npm run build
+RUN npm run build --workspace backend
 
-# ─── Stage 3: Production ─────────────────────────────────────────
+# --- Estagio 3: producao -------------------------------------------------
 FROM node:20-alpine AS production
-LABEL org.opencontainers.image.title="Enterprise API"
-LABEL org.opencontainers.image.version="1.0.0"
+LABEL org.opencontainers.image.title="AuthCore API"
+LABEL org.opencontainers.image.source="https://github.com/fabriciojunio/authcore"
 
-# Security: Create non-root user
-RUN addgroup --system --gid 1001 nodejs && \
-    adduser --system --uid 1001 --ingroup nodejs appuser
+RUN addgroup --system --gid 1001 nodejs \
+    && adduser --system --uid 1001 --ingroup nodejs appuser
 
-# Install only necessary runtime deps
-RUN apk add --no-cache \
-    dumb-init \
-    wget \
-    && rm -rf /var/cache/apk/*
+RUN apk add --no-cache dumb-init wget && rm -rf /var/cache/apk/*
 
 WORKDIR /app
 
-# Copy production dependencies
+# Com workspace, o npm iça as dependencias para a raiz, entao e de la que elas
+# vem.
 COPY --from=deps --chown=appuser:nodejs /app/node_modules ./node_modules
+COPY --from=builder --chown=appuser:nodejs /app/backend/dist ./dist
+COPY --chown=appuser:nodejs backend/package.json ./
 
-# Copy compiled application
-COPY --from=builder --chown=appuser:nodejs /app/dist ./dist
-COPY --chown=appuser:nodejs package.json ./
+RUN mkdir -p logs uploads && chown -R appuser:nodejs logs uploads
 
-# Create necessary directories with proper ownership
-RUN mkdir -p logs uploads && \
-    chown -R appuser:nodejs logs uploads
-
-# Switch to non-root user
 USER appuser
 
-# Security: Don't run as root
 ENV NODE_ENV=production \
     PORT=3001
 
 EXPOSE 3001
 
-# Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
     CMD wget --no-verbose --tries=1 --spider http://localhost:3001/health/live || exit 1
 
-# Use dumb-init to handle PID 1 properly
 ENTRYPOINT ["dumb-init", "--"]
 CMD ["node", "dist/server.js"]

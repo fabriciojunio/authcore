@@ -224,7 +224,8 @@ jobs:
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
-          context: ./backend
+          # A raiz, e nao ./backend: o lockfile do workspace vive aqui.
+          context: .
           file: ./docker/Dockerfile.backend
           target: production
           push: true
