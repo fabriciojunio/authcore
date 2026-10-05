@@ -1,4 +1,7 @@
-import nodemailer from 'nodemailer';
+// A partir da versao 10 o nodemailer traz os proprios tipos, e o pacote
+// @types/nodemailer deixou de existir no projeto. O namespace do import padrao
+// some junto: o tipo do transporte agora vem por import nomeado.
+import nodemailer, { type Transporter } from 'nodemailer';
 import { config } from '@config/app.config';
 import { logger } from '@config/logger';
 
@@ -22,7 +25,7 @@ interface SendPasswordResetEmailDto {
 }
 
 export class EmailService {
-  private transporter: nodemailer.Transporter;
+  private transporter: Transporter;
 
   constructor() {
     this.transporter = nodemailer.createTransport({

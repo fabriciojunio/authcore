@@ -163,7 +163,19 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: npm audit (high and above)
+      # A barreira é sobre dependência de producao, que e a que sobe junto com
+      # o servidor. O que trava a entrega aqui e falha alcancavel por quem
+      # acessa a aplicacao.
+      - name: npm audit das dependencias de producao (high and above)
+        run: npm audit --omit=dev --audit-level=high
+
+      # A arvore de desenvolvimento entra como relatorio e nao como barreira.
+      # Ela carrega dezenas de alertas em Jest e ESLint que nao existem em
+      # nenhum servidor em pe, e travar a entrega neles ensina o time a ignorar
+      # a etapa inteira, que e justamente o que faz o alerta de producao passar
+      # batido no dia em que aparecer.
+      - name: npm audit da arvore completa (relatorio)
+        continue-on-error: true
         run: npm audit --audit-level=high
 
   # Publicacao da imagem Docker apenas no branch padrao.
