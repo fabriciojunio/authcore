@@ -1,14 +1,14 @@
 name: CI/CD Pipeline
 
-# O branch padrao deste repositorio e master. Enquanto o gatilho apontava para
-# main, o fluxo existia, aparecia como ativo e nunca rodava: zero execucoes
+# O branch padrao deste repositorio e produção. Enquanto o gatilho apontava para
+# produção, o fluxo existia, aparecia como ativo e nunca rodava: zero execucoes
 # desde a criacao. Nada avisa quando isso acontece, e a leitura de quem olha o
 # repositorio e a oposta, de que o CI passa.
 on:
   push:
-    branches: [master, develop]
+    branches: ["produção", "homologação"]
   pull_request:
-    branches: [master]
+    branches: ["produção", "homologação"]
 
 env:
   NODE_VERSION: '20'
@@ -180,14 +180,14 @@ jobs:
 
   # Publicacao da imagem Docker apenas no branch padrao.
   #
-  # A condicao apontava para refs/heads/main, mesmo erro que o gatilho do
-  # fluxo tinha: o branch padrao deste repositorio e master. O job aparecia
+  # A condicao apontava para refs/heads/produção, mesmo erro que o gatilho do
+  # fluxo tinha: o branch padrao deste repositorio e produção. O job aparecia
   # na definicao e era sempre pulado, sem nada avisando.
   docker:
     name: Build Docker Image
     runs-on: ubuntu-latest
     needs: [test, build, security]
-    if: github.ref == 'refs/heads/master'
+    if: github.ref == 'refs/heads/produção'
 
     permissions:
       contents: read
