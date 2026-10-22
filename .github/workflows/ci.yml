@@ -94,8 +94,9 @@ jobs:
         run: npm ci
 
       - name: Run tests with coverage
-        run: npm run test:coverage --workspace=backend
+        run: npm run test:coverage --workspace=backend -- --runInBand
         env:
+          AUTHCORE_POSTGRES_TEST: '1'
           NODE_ENV: test
           JWT_ACCESS_SECRET: test-secret-that-is-at-least-64-characters-long-for-testing-only
           JWT_REFRESH_SECRET: test-refresh-secret-that-is-at-least-64-chars-long-for-testing

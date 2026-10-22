@@ -1,4 +1,4 @@
-import { useId } from 'react'
+import { useId, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -12,9 +12,12 @@ const schema = z.object({
   email:     z.string().email('E-mail inválido'),
   password:  z.string()
     .min(8, 'Mínimo 8 caracteres')
+    .max(128, 'Máximo 128 caracteres')
     .regex(/[A-Z]/, 'Adicione uma letra maiúscula')
+    .regex(/[a-z]/, 'Adicione uma letra minúscula')
     .regex(/[0-9]/, 'Adicione um número')
-    .regex(/[^A-Za-z0-9]/, 'Adicione um caractere especial'),
+    .regex(/[^A-Za-z0-9]/, 'Adicione um caractere especial')
+    .refine(value => new TextEncoder().encode(value).length <= 72, 'Máximo 72 bytes na senha'),
   confirm: z.string(),
 }).refine(d => d.password === d.confirm, {
   message: 'As senhas não coincidem',
@@ -39,6 +42,7 @@ function strengthLevel(pw: string): number {
 }
 
 export default function RegisterPage() {
+  const [submitted, setSubmitted] = useState(false)
   const { register: registerUser, isLoading, error, clearError } = useAuthStore()
   const firstId = useId(); const lastId = useId()
   const emailId = useId(); const passId = useId(); const confId = useId()
@@ -53,7 +57,13 @@ export default function RegisterPage() {
 
   const onSubmit = async (data: FormData) => {
     clearError()
-    await registerUser(`${data.firstName} ${data.lastName}`, data.email, data.password)
+    setSubmitted(false)
+    try {
+      await registerUser(`${data.firstName} ${data.lastName}`, data.email, data.password)
+      setSubmitted(true)
+    } catch {
+      // A mensagem é apresentada pelo estado de autenticação.
+    }
   }
 
   return (
@@ -67,7 +77,7 @@ export default function RegisterPage() {
             <em className={styles.headlineEm}>Sem complicação.</em>
           </h1>
           <p className={styles.sub}>
-            Crie sua conta e tenha acesso imediato ao painel de controle completo da plataforma.
+            Solicite sua conta. O acesso depende da verificação e da ativação do cadastro.
           </p>
           <div className={styles.checklist}>
             {checks.map(c => (
@@ -91,6 +101,10 @@ export default function RegisterPage() {
 
           {error && (
             <div role="alert" aria-live="assertive" className={styles.errorBanner}>{error}</div>
+          )}
+
+          {submitted && (
+            <p role="status">Solicitação recebida. O acesso estará disponível após a verificação e a ativação do cadastro.</p>
           )}
 
           <form onSubmit={handleSubmit(onSubmit)} noValidate>

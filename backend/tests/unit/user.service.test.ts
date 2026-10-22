@@ -1,4 +1,5 @@
 import { UserService } from '../../src/services/user.service';
+import bcrypt from 'bcryptjs';
 import { userRepository } from '../../src/repositories/user.repository';
 import { cacheService } from '../../src/services/cache.service';
 import { UserRole } from '../../src/models/user.entity';
@@ -46,6 +47,21 @@ describe('UserService', () => {
       await service.getProfile('u-1');
 
       expect(userRepository.findById).not.toHaveBeenCalled();
+    });
+
+    it('should strip secrets from cached entities written by older versions', async () => {
+      jest.mocked(cacheService.get).mockResolvedValue(usuario({
+        passwordResetToken: 'reset-secret',
+        refreshTokenHash: 'refresh-secret',
+        sessionVersion: 7,
+      }) as never);
+
+      const profile = await service.getProfile('u-1');
+
+      expect(profile).toMatchObject({ id: 'u-1', email: 'usuario@teste.com' });
+      expect(profile).not.toHaveProperty('passwordResetToken');
+      expect(profile).not.toHaveProperty('refreshTokenHash');
+      expect(profile).not.toHaveProperty('sessionVersion');
     });
 
     it('should load from the database and warm the cache on a miss', async () => {
@@ -121,7 +137,7 @@ describe('UserService', () => {
   describe('changePassword', () => {
     beforeEach(() => {
       jest.mocked(userRepository.findById).mockResolvedValue(usuario() as never);
-      jest.mocked(userRepository.save).mockResolvedValue(usuario() as never);
+      jest.mocked(userRepository.changePasswordIfCurrent).mockResolvedValue(true);
     });
 
     /**
@@ -135,7 +151,7 @@ describe('UserService', () => {
       await expect(
         service.changePassword('u-1', { currentPassword: 'errada', newPassword: 'NovaSenha1!' })
       ).rejects.toThrow(ValidationError);
-      expect(userRepository.save).not.toHaveBeenCalled();
+      expect(userRepository.changePasswordIfCurrent).not.toHaveBeenCalled();
     });
 
     it('should reject reusing the very same password', async () => {
@@ -155,9 +171,19 @@ describe('UserService', () => {
         newPassword: 'NovaSenha1!',
       });
 
-      expect(alvo).toHaveProperty('password', 'NovaSenha1!');
-      expect(userRepository.save).toHaveBeenCalledWith(alvo);
+      const [account, hash] = jest.mocked(userRepository.changePasswordIfCurrent).mock.calls[0]!;
+      expect(account).toBe(alvo);
+      expect(await bcrypt.compare('NovaSenha1!', hash)).toBe(true);
       expect(cacheService.delete).toHaveBeenCalledWith('user:u-1');
+    });
+
+    it('does not report success when another change already replaced the credentials', async () => {
+      jest.mocked(userRepository.findByEmailWithPassword).mockResolvedValue(usuario() as never);
+      jest.mocked(userRepository.changePasswordIfCurrent).mockResolvedValue(false);
+
+      await expect(service.changePassword('u-1', {
+        currentPassword: 'Atual1!', newPassword: 'NovaSenha1!',
+      })).rejects.toThrow('Credentials changed');
     });
 
     it('should fail when the account disappeared mid-flight', async () => {

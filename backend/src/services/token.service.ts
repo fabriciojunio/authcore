@@ -7,6 +7,7 @@ export interface TokenPayload {
   sub: string;
   email: string;
   role: string;
+  sessionVersion?: number;
   type: 'access' | 'refresh';
   iat?: number;
   exp?: number;
@@ -31,6 +32,7 @@ export class TokenService {
         algorithm: 'HS256',
         issuer: config.app.name,
         audience: 'api',
+        jwtid: crypto.randomUUID(),
       }
     );
 
@@ -42,13 +44,15 @@ export class TokenService {
         algorithm: 'HS256',
         issuer: config.app.name,
         audience: 'api',
+        jwtid: crypto.randomUUID(),
       }
     );
 
     return {
       accessToken,
       refreshToken,
-      expiresIn: 15 * 60, // 15 minutes in seconds
+      expiresIn: (jwt.decode(accessToken) as TokenPayload).exp! -
+        (jwt.decode(accessToken) as TokenPayload).iat!,
     };
   }
 

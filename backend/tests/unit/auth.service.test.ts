@@ -27,6 +27,7 @@ describe('AuthService', () => {
   beforeEach(() => {
     authService = new AuthService();
     jest.clearAllMocks();
+    mockUserRepo.completeLogin.mockResolvedValue(true);
   });
 
   describe('register', () => {
@@ -40,7 +41,7 @@ describe('AuthService', () => {
         password: 'SecurePass123!',
       });
 
-      expect(result.message).toContain('verification instructions');
+      expect(result.message).toContain('verification and activation');
       expect(mockUserRepo.findByEmail).toHaveBeenCalledWith('test@test.com');
       expect(mockUserRepo.create).toHaveBeenCalledTimes(1);
     });
@@ -55,7 +56,7 @@ describe('AuthService', () => {
       });
 
       // Mesma mensagem genérica do caminho de sucesso e nenhuma criação de conta.
-      expect(result.message).toContain('verification instructions');
+      expect(result.message).toContain('verification and activation');
       expect(mockUserRepo.create).not.toHaveBeenCalled();
     });
 

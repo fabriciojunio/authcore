@@ -225,7 +225,7 @@ describe('UserController', () => {
 
   describe('perfil', () => {
     it('should never expose the raw entity, only the safe projection', async () => {
-      jest.mocked(userService.getProfile).mockResolvedValue(entidade as never);
+      jest.mocked(userService.getProfile).mockResolvedValue(entidade.toSafeObject());
       const resposta = respostaEspia();
 
       await controller.getProfile(requisicaoDe(), resposta.res);

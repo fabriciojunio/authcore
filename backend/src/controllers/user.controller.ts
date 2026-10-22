@@ -9,7 +9,7 @@ export class UserController {
     const user = await userService.getProfile(req.user!.id);
     res.status(HttpStatus.OK).json({
       success: true,
-      data: { user: user.toSafeObject() },
+      data: { user },
     });
   }
 

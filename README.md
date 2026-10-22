@@ -2,6 +2,17 @@
 
 [![Demo](https://img.shields.io/badge/Demo-authcore.vercel.app-000000?style=flat-square&logo=vercel&logoColor=white)](https://frontend-tan-mu-38.vercel.app)
 
+## Estado dos fluxos
+
+Login e renovação utilizam o contrato HTTP da API: `data.accessToken` e cookie
+HttpOnly para refresh. O cadastro retorna uma mensagem e mantém a conta pendente;
+não autentica automaticamente. Envio de e-mail e ativação autônoma ainda não estão
+completos. O modo demonstração usa dados locais e não concede acesso à API.
+
+Aplicar a migração de `sessionVersion` antes da atualização do backend. A revogação
+passa a consultar a versão persistida em cada requisição autenticada. Consulte
+[SECURITY.md](SECURITY.md) para controles, riscos e limites conhecidos.
+
 ## Tech Stack
 
 **Backend:** Node.js · TypeScript · Express · TypeORM · PostgreSQL · Redis  
@@ -60,7 +71,7 @@ authcore/
 - Refresh token rotation with reuse detection
 - Token blacklist via Redis on logout
 - Account lockout after 5 failed attempts
-- Timing-safe password comparison (prevents user enumeration)
+- Password comparison with a dummy-hash path for unknown accounts; enumeration risks remain
 - 2FA via TOTP (Google Authenticator compatible)
 
 ### Network Security
@@ -74,10 +85,10 @@ authcore/
 ### Data Security
 - bcrypt with 12 rounds for passwords
 - Sensitive fields excluded from DB selects by default
-- Soft deletes (data never permanently lost)
-- Audit log table for compliance
-- No secrets in code (validated env config)
-- Console output disabled in production (no data leaks)
+- Soft deletes; retention and recovery require an operational policy
+- Audit log model; deployment and coverage of events require validation
+- Required environment configuration validated at startup
+- Production log configuration; review identifiers and retention in all log destinations
 
 ### Infrastructure
 - Non-root Docker containers
