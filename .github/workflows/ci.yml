@@ -1,9 +1,6 @@
 name: CI/CD Pipeline
 
-# O branch padrao deste repositorio e produção. Enquanto o gatilho apontava para
-# produção, o fluxo existia, aparecia como ativo e nunca rodava: zero execucoes
-# desde a criacao. Nada avisa quando isso acontece, e a leitura de quem olha o
-# repositorio e a oposta, de que o CI passa.
+# Validar alterações antes da promoção de homologação para produção.
 on:
   push:
     branches: ["produção", "homologação"]

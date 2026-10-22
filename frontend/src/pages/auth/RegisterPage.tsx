@@ -28,8 +28,8 @@ type FormData = z.infer<typeof schema>
 const checks = [
   'JWT com refresh token automático',
   'Controle de acesso por papel',
-  'Notificações em tempo real',
-  'Auditoria de todas as ações',
+  'Demonstração com dados fictícios',
+  'Exemplo de painel administrativo',
 ]
 
 function strengthLevel(pw: string): number {
@@ -154,8 +154,7 @@ export default function RegisterPage() {
             </button>
 
             <div className={styles.terms}>
-              Ao criar uma conta você concorda com os <a href="#">termos de uso</a><br />
-              e <a href="#">política de privacidade</a>.
+              Ambiente de demonstração. Use dados fictícios.
             </div>
           </form>
         </div>
