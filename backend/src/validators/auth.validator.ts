@@ -16,7 +16,7 @@ export const registerSchema = z.object({
     .trim()
     .min(2, 'Name must be at least 2 characters')
     .max(100, 'Name must not exceed 100 characters')
-    .regex(/^[\p{L}\p{M} '\-]+$/u, 'Name can only contain letters, spaces, hyphens, and apostrophes')
+    .regex(/^[\p{L}\p{M} '-]+$/u, 'Name can only contain letters, spaces, hyphens, and apostrophes')
     .transform((value) => value.normalize('NFC')),
   email: z
     .string()
