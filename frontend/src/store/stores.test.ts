@@ -59,12 +59,12 @@ describe('authStore', () => {
     expect(api.post).not.toHaveBeenCalled()
   })
 
-  it('o login de verdade guarda os dois tokens e sai do modo demonstração', async () => {
+  it('o login aceita o contrato HTTP e guarda somente o token de acesso', async () => {
     vi.mocked(api.post).mockResolvedValueOnce({
       data: {
         data: {
           user: { id: '1', name: 'Ana', email: 'ana@exemplo.com', role: 'user', status: 'active' },
-          tokens: { accessToken: 'acesso', refreshToken: 'renovacao' },
+          accessToken: 'acesso', expiresIn: 900,
         },
       },
     })
@@ -75,7 +75,7 @@ describe('authStore', () => {
     expect(s.isAuthenticated).toBe(true)
     expect(s.isDemo).toBe(false)
     expect(s.user?.email).toBe('ana@exemplo.com')
-    expect(setTokens).toHaveBeenCalledWith('acesso', 'renovacao')
+    expect(setTokens).toHaveBeenCalledWith('acesso')
   })
 
   it('credencial recusada guarda a mensagem do servidor e repropaga o erro', async () => {
@@ -119,7 +119,7 @@ describe('authStore', () => {
     expect(setTokens).not.toHaveBeenCalled()
   })
 
-  it('token faltando na resposta não autentica pela metade', async () => {
+  it('o contrato antigo com tokens aninhados é rejeitado', async () => {
     vi.mocked(api.post).mockResolvedValueOnce({
       data: {
         data: {
@@ -133,9 +133,20 @@ describe('authStore', () => {
       useAuthStore.getState().login('ana@exemplo.com', 'senha'),
     ).rejects.toBeTruthy()
 
-    // Sem o token de renovação a sessão morre no primeiro 401. Melhor recusar
-    // agora do que deixar entrar e cair sozinho em quinze minutos.
+    // O refresh é entregue em cookie HttpOnly, nunca lido pelo JavaScript.
     expect(useAuthStore.getState().isAuthenticated).toBe(false)
+    expect(setTokens).not.toHaveBeenCalled()
+  })
+
+  it('cadastro envia confirmação e mantém conta pendente sem criar sessão', async () => {
+    vi.mocked(api.post).mockResolvedValueOnce({ data: { data: { message: 'Solicitação recebida' } } })
+    await useAuthStore.getState().register('Fabrício Júnio', 'pessoa@example.test', 'SenhaForte1!')
+    expect(api.post).toHaveBeenCalledWith('/auth/register', {
+      name: 'Fabrício Júnio', email: 'pessoa@example.test',
+      password: 'SenhaForte1!', confirmPassword: 'SenhaForte1!',
+    })
+    expect(useAuthStore.getState().isAuthenticated).toBe(false)
+    expect(useAuthStore.getState().isLoading).toBe(false)
     expect(setTokens).not.toHaveBeenCalled()
   })
 

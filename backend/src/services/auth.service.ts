@@ -34,7 +34,7 @@ export class AuthService {
   // Resposta idêntica em qualquer cenário de cadastro para não revelar
   // se um e-mail já existe (proteção contra enumeração de usuários).
   private static readonly REGISTER_MESSAGE =
-    'If the email is valid, verification instructions will be sent.';
+    'Registration request received. Account access requires verification and activation.';
 
   // Hash fictício usado para equalizar o tempo de resposta quando o
   // usuário não existe, evitando enumeração por timing attack.
@@ -82,8 +82,7 @@ export class AuthService {
     const isPasswordValid = await user.comparePassword(dto.password);
 
     if (!isPasswordValid) {
-      user.incrementFailedAttempts();
-      await userRepository.save(user);
+      await userRepository.recordFailedLogin(user);
       logger.warn('Failed login attempt', { userId: user.id, ipAddress });
       throw new AuthenticationError('Invalid credentials');
     }
@@ -102,22 +101,23 @@ export class AuthService {
       }
       const isValidTotp = this.verifyTotp(user.twoFactorSecret!, dto.totp);
       if (!isValidTotp) {
+        await userRepository.recordFailedLogin(user);
         throw new AuthenticationError('Invalid two-factor code');
       }
     }
-
-    // Reset failed attempts on success
-    user.resetFailedAttempts();
-    user.lastLoginAt = new Date();
 
     const tokens = tokenService.generateTokenPair({
       sub: user.id,
       email: user.email,
       role: user.role,
+      sessionVersion: user.sessionVersion,
     });
 
-    user.refreshTokenHash = tokenService.hashToken(tokens.refreshToken);
-    await userRepository.save(user);
+    // Não regrava uma entidade desatualizada sobre uma troca de senha concorrente.
+    const completed = await userRepository.completeLogin(user, tokenService.hashToken(tokens.refreshToken));
+    if (!completed) throw new AuthenticationError('Credentials changed. Please sign in again');
+    user.resetFailedAttempts();
+    user.lastLoginAt = new Date();
 
     logger.info('User logged in', { userId: user.id, ipAddress });
 
@@ -127,23 +127,12 @@ export class AuthService {
   async refresh(refreshToken: string): Promise<TokenPair> {
     const payload = tokenService.verifyRefreshToken(refreshToken);
 
-    const isBlacklisted = await cacheService.isTokenBlacklisted(
-      tokenService.hashToken(refreshToken)
-    );
-    if (isBlacklisted) {
-      throw new AuthenticationError('Token has been revoked');
-    }
-
     const user = await userRepository.findById(payload.sub);
     if (!user) throw new AuthenticationError('User not found');
     if (!user.isActive()) throw new AuthenticationError('Account is not active');
 
     const tokenHash = tokenService.hashToken(refreshToken);
-    if (user.refreshTokenHash !== tokenHash) {
-      // Possible token reuse attack - invalidate all sessions
-      user.refreshTokenHash = undefined;
-      await userRepository.save(user);
-      logger.warn('Possible refresh token reuse attack', { userId: user.id });
+    if ((payload.sessionVersion ?? 0) !== user.sessionVersion) {
       throw new AuthenticationError('Invalid refresh token');
     }
 
@@ -151,12 +140,19 @@ export class AuthService {
       sub: user.id,
       email: user.email,
       role: user.role,
+      sessionVersion: user.sessionVersion,
     });
 
-    // Blacklist old refresh token and save new one
-    await cacheService.blacklistToken(tokenHash, 7 * 24 * 60 * 60);
-    user.refreshTokenHash = tokenService.hashToken(tokens.refreshToken);
-    await userRepository.save(user);
+    // Compare-and-swap no banco: duas requisições não consomem o mesmo token.
+    const rotated = await userRepository.rotateRefreshToken(
+      user.id, tokenHash, tokenService.hashToken(tokens.refreshToken), user.sessionVersion
+    );
+    if (!rotated) {
+      await userRepository.revokeSessions(user.id);
+      await cacheService.delete(`auth:${user.id}`);
+      logger.warn('Possible refresh token reuse attack', { userId: user.id });
+      throw new AuthenticationError('Invalid refresh token');
+    }
 
     return tokens;
   }
@@ -168,8 +164,7 @@ export class AuthService {
     const tokenHash = tokenService.hashToken(refreshToken);
     await cacheService.blacklistToken(tokenHash, 7 * 24 * 60 * 60);
 
-    user.refreshTokenHash = undefined;
-    await userRepository.save(user);
+    await userRepository.revokeSessions(userId);
 
     // Invalidate user cache (mesma chave usada em auth.middleware.ts)
     await cacheService.delete(`auth:${userId}`);

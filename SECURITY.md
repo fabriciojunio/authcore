@@ -1,72 +1,52 @@
-# Security Policy
+# Segurança
 
-## Supported Versions
+## Controles implementados
 
-| Version | Supported |
-|---------|-----------|
-| 1.x.x   | ✅        |
-| < 1.0   | ❌        |
+- Login validado no servidor, com papéis de acesso e verificação do estado da conta.
+- Tokens de acesso JWT HS256 e renovação por cookie HttpOnly, SameSite=Strict e Secure em produção.
+- Rotação de refresh com atualização condicional no PostgreSQL. Reuso invalida a sessão persistida.
+- Versão de sessão conferida no banco em cada autenticação; logout e troca de senha revogam o acesso anterior.
+- Limite de tentativas, bloqueio temporário, validação de entrada e comparação de senha com bcrypt.
+- Consultas públicas omitem campos sensíveis; autenticação utiliza consultas específicas que precisam desses campos.
+- Limites de corpo e requisições, configuração de origens permitidas e cabeçalhos de segurança.
 
-## Security Features
+Os tempos de expiração e limites dependem da configuração. Confirmar proxy, HTTPS,
+origens permitidas e armazenamento de segredos na implantação. O cookie Strict exige
+uma arquitetura de domínio compatível; frontend e API em sites distintos precisam
+de desenho e proteção contra CSRF apropriados antes de mudar essa configuração.
 
-### Authentication & Authorization
-- JWT access tokens with 15-minute expiry
-- httpOnly, SameSite=Strict refresh token cookies
-- Refresh token rotation: reuse detected and all sessions invalidated
-- Token blacklisting in Redis on logout
-- Account lockout after 5 failed login attempts (15 minutes)
-- Timing-safe credential comparison (prevents user enumeration)
-- Two-Factor Authentication (TOTP)
-- RBAC (admin / manager / user roles)
+## Limites conhecidos
 
-### API Security
-- Helmet.js with strict Content Security Policy
-- HSTS with 1-year max-age + preload
-- Rate limiting: 100 req/15min global, 10 req/15min on auth endpoints
-- HTTP Parameter Pollution (hpp) protection
-- Input sanitization (XSS filtering on all body fields)
-- Request body size limit (10KB)
-- CORS whitelist enforced
+- Cadastro cria conta pendente e retorna mensagem genérica. O envio de e-mail e o
+  fluxo completo de verificação/ativação ainda precisam ser implementados antes de
+  oferecer cadastro autônomo em produção.
+- Há verificação TOTP no login para contas configuradas; isso não demonstra um
+  fluxo completo de adesão, recuperação e gestão de segundo fator na interface.
+- A interface guarda o token de acesso em sessionStorage. O refresh fica no cookie
+  HttpOnly. Proteção contra XSS continua necessária; armazenamento de acesso no
+  navegador não elimina esse risco.
+- Mensagem genérica no cadastro e comparação fictícia no login reduzem alguns
+  sinais de enumeração. Não constituem prova de tempo constante ou impossibilidade
+  de enumeração por todos os caminhos.
+- Exclusão lógica não equivale a eliminação de dados nem define uma política de
+  retenção. Backups, auditoria e atendimento aos titulares dependem da operação.
+- Logs podem conter identificadores pessoais. Desabilitar console não comprova
+  ausência de vazamentos; revisar conteúdo, acesso e retenção dos destinos de log.
+- Criptografia, isolamento, recuperação e controles descritos nos arquivos de
+  infraestrutura precisam de validação no ambiente implantado.
 
-### Data Security
-- bcrypt with 12 rounds for password hashing
-- Sensitive fields excluded from all DB select queries
-- Soft deletes (audit trail preserved)
-- DB fields encrypted where needed (AES-256)
-- Secrets validated at startup (never silently undefined)
-- Console output completely disabled in production (zero data leaks)
+## Validação técnica
 
-### Infrastructure
-- Non-root Docker containers (UID 1001)
-- Read-only container filesystem (with tmpfs for /tmp)
-- `no-new-privileges` security option
-- Resource limits on all containers
-- PostgreSQL scram-sha-256 authentication
-- Redis password required + protected-mode on
-- Nginx as reverse proxy (API never directly exposed)
+A suíte inclui concorrência de refresh e senha, revogação de sessão e contrato HTTP
+com PostgreSQL real quando `AUTHCORE_POSTGRES_TEST=1`. O banco permitido nesses testes
+é `enterprise_test`; usar ambiente isolado. A migração de versão de sessão precisa
+ser aplicada antes de publicar o código que a utiliza.
 
-### Code Quality
-- TypeScript strict mode
-- ESLint with `no-any`, `no-console`, `no-floating-promises` enforced
-- Zod schema validation on all inputs (body, query, params)
-- All async routes wrapped in express-async-errors
+Testes aprovados não certificam ausência de vulnerabilidades nem conformidade
+integral com a LGPD. Mudanças de finalidade, dados e infraestrutura exigem revisão.
 
-## Reporting a Vulnerability
+## Relato de vulnerabilidade
 
-Please report security vulnerabilities to **fabricioad444@gmail.com**.
-
-Do **not** file a public GitHub issue for security vulnerabilities.
-
-We aim to acknowledge all reports within **48 hours** and will provide
-updates every 5 business days. Critical vulnerabilities are patched and
-released within **7 days** of confirmation.
-
-## Generating Secrets
-
-```bash
-# JWT secrets (min 64 characters)
-node -e "console.log(require('crypto').randomBytes(64).toString('hex'))"
-
-# Encryption key (exactly 32 characters)
-node -e "console.log(require('crypto').randomBytes(16).toString('hex'))"
-```
+Enviar detalhes para **fabricioad444@gmail.com**. Evitar divulgar dados pessoais,
+credenciais ou exploração reproduzível em uma issue pública. A resposta depende da
+disponibilidade do mantenedor; não há prazo de correção contratualmente garantido.

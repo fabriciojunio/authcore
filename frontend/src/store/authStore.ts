@@ -39,19 +39,18 @@ interface AuthState {
  * (reading 'accessToken')" para o usuario. Erro de JavaScript na tela de login
  * nao diz nada a quem esta tentando entrar, e diz demais a quem esta olhando.
  */
-function lerSessao(corpo: unknown): { user: AuthUser; tokens: { accessToken: string; refreshToken: string } } {
+function lerSessao(corpo: unknown): { user: AuthUser; accessToken: string } {
   const dados = (corpo as { data?: { data?: unknown } })?.data?.data as
-    | { user?: AuthUser; tokens?: { accessToken?: string; refreshToken?: string } }
+    | { user?: AuthUser; accessToken?: string }
     | undefined
 
   const user = dados?.user
-  const accessToken = dados?.tokens?.accessToken
-  const refreshToken = dados?.tokens?.refreshToken
+  const accessToken = dados?.accessToken
 
-  if (!user || !accessToken || !refreshToken) {
+  if (!user || typeof accessToken !== 'string' || !accessToken) {
     throw { message: 'Resposta inesperada do servidor', code: 'RESPOSTA_INVALIDA' }
   }
-  return { user, tokens: { accessToken, refreshToken } }
+  return { user, accessToken }
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
@@ -70,8 +69,8 @@ export const useAuthStore = create<AuthState>((set) => ({
 
     set({ isLoading: true, error: null })
     try {
-      const { user, tokens } = lerSessao(await api.post('/auth/login', { email, password }))
-      setTokens(tokens.accessToken, tokens.refreshToken)
+      const { user, accessToken } = lerSessao(await api.post('/auth/login', { email, password }))
+      setTokens(accessToken)
       set({ user, isAuthenticated: true, isDemo: false, isLoading: false })
     } catch (err: unknown) {
       const e = err as { message?: string }
@@ -87,11 +86,12 @@ export const useAuthStore = create<AuthState>((set) => ({
   register: async (name, email, password) => {
     set({ isLoading: true, error: null })
     try {
-      const { user, tokens } = lerSessao(
-        await api.post('/auth/register', { name, email, password }),
-      )
-      setTokens(tokens.accessToken, tokens.refreshToken)
-      set({ user, isAuthenticated: true, isDemo: false, isLoading: false })
+      const response = await api.post('/auth/register', { name, email, password, confirmPassword: password })
+      if (typeof response.data?.data?.message !== 'string') {
+        throw { message: 'Resposta inesperada do servidor', code: 'RESPOSTA_INVALIDA' }
+      }
+      // O cadastro cria uma conta pendente; a API não concede uma sessão.
+      set({ isLoading: false })
     } catch (err: unknown) {
       const e = err as { message?: string }
       set({ error: e?.message ?? 'Erro ao criar conta', isLoading: false })
