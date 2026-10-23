@@ -1,9 +1,6 @@
 name: CI/CD Pipeline
 
-# O branch padrao deste repositorio e produção. Enquanto o gatilho apontava para
-# produção, o fluxo existia, aparecia como ativo e nunca rodava: zero execucoes
-# desde a criacao. Nada avisa quando isso acontece, e a leitura de quem olha o
-# repositorio e a oposta, de que o CI passa.
+# Validar alterações antes da promoção de homologação para produção.
 on:
   push:
     branches: ["produção", "homologação"]
@@ -94,8 +91,9 @@ jobs:
         run: npm ci
 
       - name: Run tests with coverage
-        run: npm run test:coverage --workspace=backend
+        run: npm run test:coverage --workspace=backend -- --runInBand
         env:
+          AUTHCORE_POSTGRES_TEST: '1'
           NODE_ENV: test
           JWT_ACCESS_SECRET: test-secret-that-is-at-least-64-characters-long-for-testing-only
           JWT_REFRESH_SECRET: test-refresh-secret-that-is-at-least-64-chars-long-for-testing

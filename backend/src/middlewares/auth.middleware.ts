@@ -37,20 +37,16 @@ export async function authenticate(req: Request, _res: Response, next: NextFunct
 
   const payload = tokenService.verifyAccessToken(token);
 
-  // Verify user still exists and is active
-  const cacheKey = `auth:${payload.sub}`;
-  let user = await cacheService.get<{ id: string; email: string; role: UserRole }>(cacheKey);
-
-  if (!user) {
-    const dbUser = await userRepository.findById(payload.sub);
-    if (!dbUser || !dbUser.isActive()) {
-      throw new AuthenticationError('User account is not available');
-    }
-    user = { id: dbUser.id, email: dbUser.email, role: dbUser.role };
-    await cacheService.set(cacheKey, user, 60); // Cache for 1 minute
+  // O estado de autorização precisa refletir revogações já confirmadas no banco.
+  const dbUser = await userRepository.findById(payload.sub);
+  if (!dbUser || !dbUser.isActive()) {
+    throw new AuthenticationError('User account is not available');
+  }
+  if ((payload.sessionVersion ?? 0) !== (dbUser.sessionVersion ?? 0)) {
+    throw new AuthenticationError('Token has been revoked');
   }
 
-  req.user = user;
+  req.user = { id: dbUser.id, email: dbUser.email, role: dbUser.role };
   next();
 }
 
@@ -70,18 +66,17 @@ export function authorize(...roles: UserRole[]) {
   };
 }
 
-export function optionalAuth(req: Request, _res: Response, next: NextFunction): void {
+export async function optionalAuth(req: Request, res: Response, next: NextFunction): Promise<void> {
   const authHeader = req.headers.authorization;
   if (!authHeader?.startsWith('Bearer ')) {
     return next();
   }
 
   try {
-    const token = authHeader.slice(7);
-    const payload = tokenService.verifyAccessToken(token);
-    req.user = { id: payload.sub, email: payload.email, role: payload.role as UserRole };
-  } catch {
-    // Ignore errors for optional auth
+    await authenticate(req, res, () => undefined);
+  } catch (error) {
+    if (!(error instanceof AuthenticationError)) throw error;
+    delete req.user;
   }
 
   next();

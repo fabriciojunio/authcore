@@ -39,7 +39,9 @@ export function sanitizeBody(req: Request, _res: Response, next: NextFunction): 
     if (value && typeof value === 'object') {
       const sanitized: Record<string, unknown> = {};
       for (const [key, val] of Object.entries(value)) {
-        sanitized[key] = sanitizeValue(val);
+        // Senhas são opacas: normalizá-las torna credenciais diferentes equivalentes.
+        sanitized[key] = ['password', 'confirmPassword', 'currentPassword', 'newPassword', 'confirmNewPassword'].includes(key)
+          ? val : sanitizeValue(val);
       }
       return sanitized;
     }

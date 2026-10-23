@@ -38,7 +38,7 @@ export class User {
   @Column({ unique: true, length: 255 })
   email!: string;
 
-  @Column()
+  @Column({ select: false })
   @Exclude()
   password!: string;
 
@@ -58,7 +58,7 @@ export class User {
   @Exclude()
   twoFactorEnabled!: boolean;
 
-  @Column({ nullable: true, name: 'two_factor_secret' })
+  @Column({ nullable: true, name: 'two_factor_secret', select: false })
   @Exclude()
   twoFactorSecret?: string;
 
@@ -74,13 +74,16 @@ export class User {
 
   @Column({ nullable: true, name: 'locked_until', type: 'timestamp' })
   @Exclude()
-  lockedUntil?: Date;
+  lockedUntil?: Date | null;
 
-  @Column({ nullable: true, name: 'refresh_token_hash' })
+  @Column({ nullable: true, name: 'refresh_token_hash', type: 'varchar', select: false })
   @Exclude()
-  refreshTokenHash?: string;
+  refreshTokenHash?: string | null;
 
-  @Column({ nullable: true, name: 'password_reset_token' })
+  @Column({ name: 'session_version', default: 0 })
+  sessionVersion: number = 0;
+
+  @Column({ nullable: true, name: 'password_reset_token', select: false })
   @Exclude()
   passwordResetToken?: string;
 
@@ -143,14 +146,23 @@ export class User {
 
   resetFailedAttempts(): void {
     this.failedLoginAttempts = 0;
-    this.lockedUntil = undefined;
+    this.lockedUntil = null;
   }
 
   toSafeObject(): Record<string, unknown> {
-    const { password, refreshTokenHash, twoFactorSecret, ...safe } = this;
-    void password;
-    void refreshTokenHash;
-    void twoFactorSecret;
-    return safe;
+    return {
+      id: this.id,
+      name: this.name,
+      email: this.email,
+      role: this.role,
+      status: this.status,
+      avatarUrl: this.avatarUrl,
+      phone: this.phone,
+      twoFactorEnabled: this.twoFactorEnabled,
+      emailVerifiedAt: this.emailVerifiedAt,
+      lastLoginAt: this.lastLoginAt,
+      createdAt: this.createdAt,
+      updatedAt: this.updatedAt,
+    };
   }
 }
