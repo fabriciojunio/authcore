@@ -29,7 +29,11 @@ export default function LoginPage() {
 
   const onSubmit = async (data: FormData) => {
     clearError()
-    await login(data.email, data.password)
+    try {
+      await login(data.email, data.password)
+    } catch {
+      // A mensagem de erro já está disponível no estado do formulário.
+    }
   }
 
   return (

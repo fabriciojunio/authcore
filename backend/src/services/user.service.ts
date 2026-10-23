@@ -4,6 +4,8 @@ import { User, UserRole } from '@models/user.entity';
 import { NotFoundError, AuthorizationError, ValidationError } from '@errors/AppError';
 import { logger } from '@config/logger';
 import { PaginatedResult, PaginationOptions } from '@repositories/base.repository';
+import bcrypt from 'bcryptjs';
+import { config } from '@config/app.config';
 
 export interface UpdateProfileDto {
   name?: string;
@@ -16,16 +18,17 @@ export interface ChangePasswordDto {
 }
 
 export class UserService {
-  async getProfile(userId: string): Promise<User> {
+  async getProfile(userId: string): Promise<ReturnType<User['toSafeObject']>> {
     const cacheKey = `user:${userId}`;
     const cached = await cacheService.get<User>(cacheKey);
-    if (cached) return cached;
+    // Entradas gravadas por versões antigas podem conter a entidade inteira.
+    if (cached) return User.prototype.toSafeObject.call(cached);
 
     const user = await userRepository.findById(userId);
     if (!user) throw new NotFoundError('User');
 
     await cacheService.set(cacheKey, user.toSafeObject(), 300); // 5 min cache
-    return user;
+    return user.toSafeObject();
   }
 
   async updateProfile(userId: string, dto: UpdateProfileDto): Promise<User> {
@@ -56,11 +59,13 @@ export class UserService {
       throw new ValidationError('New password must be different from current password');
     }
 
-    user.password = dto.newPassword;
-    await userRepository.save(user);
+    const passwordHash = await bcrypt.hash(dto.newPassword, config.security.bcryptRounds);
+    const changed = await userRepository.changePasswordIfCurrent(user, passwordHash);
+    if (!changed) throw new ValidationError('Credentials changed. Please sign in again');
 
     // Invalidate all sessions after password change
     await cacheService.delete(`user:${userId}`);
+    await cacheService.delete(`auth:${userId}`);
     logger.info('User password changed', { userId });
   }
 
@@ -91,6 +96,7 @@ export class UserService {
 
     await userRepository.softDelete(userId);
     await cacheService.delete(`user:${userId}`);
+    await cacheService.delete(`auth:${userId}`);
     logger.info('User account deleted', { userId });
   }
 }

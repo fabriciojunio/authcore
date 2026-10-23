@@ -7,15 +7,17 @@ const passwordSchema = z
   .regex(/[A-Z]/, 'Password must contain at least one uppercase letter')
   .regex(/[a-z]/, 'Password must contain at least one lowercase letter')
   .regex(/[0-9]/, 'Password must contain at least one number')
-  .regex(/[^A-Za-z0-9]/, 'Password must contain at least one special character');
+  .regex(/[^A-Za-z0-9]/, 'Password must contain at least one special character')
+  .refine((value) => Buffer.byteLength(value, 'utf8') <= 72, 'Password must not exceed 72 UTF-8 bytes');
 
 export const registerSchema = z.object({
   name: z
     .string()
+    .trim()
     .min(2, 'Name must be at least 2 characters')
     .max(100, 'Name must not exceed 100 characters')
-    .regex(/^[a-zA-Z\s'-]+$/, 'Name can only contain letters, spaces, hyphens, and apostrophes')
-    .trim(),
+    .regex(/^[\p{L}\p{M} '-]+$/u, 'Name can only contain letters, spaces, hyphens, and apostrophes')
+    .transform((value) => value.normalize('NFC')),
   email: z
     .string()
     .email('Invalid email address')
@@ -32,11 +34,11 @@ export const registerSchema = z.object({
 export const loginSchema = z.object({
   email: z.string().email('Invalid email').toLowerCase().trim(),
   password: z.string().min(1, 'Password is required'),
-  totp: z.string().length(6).optional(),
+  totp: z.string().regex(/^\d{6}$/).optional(),
 });
 
 export const refreshTokenSchema = z.object({
-  refreshToken: z.string().min(1, 'Refresh token is required'),
+  refreshToken: z.string().min(1, 'Refresh token is required').optional(),
 });
 
 export const changePasswordSchema = z.object({

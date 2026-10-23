@@ -79,6 +79,17 @@ describe('Auth Routes Integration', () => {
     });
   });
 
+  describe('POST /api/v1/auth/refresh', () => {
+    it('accepts an empty body when the refresh token is in a cookie', async () => {
+      const res = await request(app)
+        .post('/api/v1/auth/refresh')
+        .set('Cookie', 'refreshToken=invalid-token')
+        .send({});
+
+      expect(res.status).toBe(401);
+    });
+  });
+
   describe('GET /api/v1/auth/me', () => {
     it('should return 401 without authorization header', async () => {
       const res = await request(app).get('/api/v1/auth/me');

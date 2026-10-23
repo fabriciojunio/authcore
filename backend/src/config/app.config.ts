@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+const envBoolean = z.enum(['true', 'false']).default('false').transform((value) => value === 'true');
+
 const configSchema = z.object({
   node: z.object({
     env: z.enum(['development', 'production', 'test']).default('development'),
@@ -31,7 +33,7 @@ const configSchema = z.object({
     password: z.string(),
     poolMin: z.coerce.number().default(2),
     poolMax: z.coerce.number().default(10),
-    ssl: z.coerce.boolean().default(false),
+    ssl: envBoolean,
   }),
 
   redis: z.object({
@@ -54,7 +56,7 @@ const configSchema = z.object({
   email: z.object({
     host: z.string(),
     port: z.coerce.number().default(587),
-    secure: z.coerce.boolean().default(false),
+    secure: envBoolean,
     user: z.string(),
     password: z.string(),
     from: z.string().email(),

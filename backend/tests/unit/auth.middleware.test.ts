@@ -157,26 +157,23 @@ describe('authenticate (portão de entrada)', () => {
       expect(proximo).toHaveBeenCalled();
     });
 
-    it('should cache the lookup for a short window', async () => {
+    it('should check the database rather than cache authorization', async () => {
       await authenticate(requisicaoCom(`Bearer ${tokenValidoDe()}`), resposta, proximo);
 
-      expect(cacheService.set).toHaveBeenCalledWith(
-        'auth:u-1',
-        { id: 'u-1', email: 'usuario@teste.com', role: UserRole.USER },
-        60
-      );
+      expect(userRepository.findById).toHaveBeenCalledWith('u-1');
+      expect(cacheService.set).not.toHaveBeenCalled();
     });
 
-    it('should skip the database when the cache already answers', async () => {
+    it('should reject a revoked session even if the cache still carries the user', async () => {
       jest.mocked(cacheService.get).mockResolvedValue({
         id: 'u-1',
         email: 'usuario@teste.com',
         role: UserRole.USER,
       } as never);
 
-      await authenticate(requisicaoCom(`Bearer ${tokenValidoDe()}`), resposta, proximo);
-
-      expect(userRepository.findById).not.toHaveBeenCalled();
+      jest.mocked(userRepository.findById).mockResolvedValue({ ...usuarioAtivo(), sessionVersion: 1 } as never);
+      await expect(authenticate(requisicaoCom(`Bearer ${tokenValidoDe()}`), resposta, proximo))
+        .rejects.toThrow('Token has been revoked');
     });
   });
 });
@@ -228,17 +225,17 @@ describe('authorize (controle de papel)', () => {
 describe('optionalAuth (rota pública que reconhece quem entra)', () => {
   const resposta = {} as Response;
 
-  it('should carry on with no user when there is no header', () => {
+  it('should carry on with no user when there is no header', async () => {
     const requisicao = { headers: {} } as Request;
     const proximo = jest.fn();
 
-    optionalAuth(requisicao, resposta, proximo);
+    await optionalAuth(requisicao, resposta, proximo);
 
     expect(requisicao.user).toBeUndefined();
     expect(proximo).toHaveBeenCalled();
   });
 
-  it('should identify the caller when the token is good', () => {
+  it('should identify the caller when the token is good', async () => {
     const { accessToken } = tokenService.generateTokenPair({
       sub: 'u-9',
       email: 'visitante@teste.com',
@@ -246,7 +243,12 @@ describe('optionalAuth (rota pública que reconhece quem entra)', () => {
     });
     const requisicao = { headers: { authorization: `Bearer ${accessToken}` } } as Request;
 
-    optionalAuth(requisicao, resposta, jest.fn());
+    jest.mocked(cacheService.isTokenBlacklisted).mockResolvedValue(false);
+    jest.mocked(userRepository.findById).mockResolvedValue({
+      id: 'u-9', email: 'visitante@teste.com', role: UserRole.USER,
+      sessionVersion: 0, isActive: () => true,
+    } as never);
+    await optionalAuth(requisicao, resposta, jest.fn());
 
     expect(requisicao.user?.id).toBe('u-9');
   });
@@ -255,11 +257,11 @@ describe('optionalAuth (rota pública que reconhece quem entra)', () => {
    * Token ruim numa rota pública não pode virar 401: a rota é pública. O
    * visitante segue anônimo.
    */
-  it('should stay anonymous rather than fail on a bad token', () => {
+  it('should stay anonymous rather than fail on a bad token', async () => {
     const requisicao = { headers: { authorization: 'Bearer lixo' } } as Request;
     const proximo = jest.fn();
 
-    optionalAuth(requisicao, resposta, proximo);
+    await optionalAuth(requisicao, resposta, proximo);
 
     expect(requisicao.user).toBeUndefined();
     expect(proximo).toHaveBeenCalled();
