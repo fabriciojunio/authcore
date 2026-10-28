@@ -1,0 +1,31 @@
+version: 2
+updates:
+  # Versões novas só são propostas depois de 7 dias, quando um pacote comprometido costuma já ter sido retirado.
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    cooldown:
+      default-days: 7
+    ignore:
+      # Os tipos acompanham a versão principal do Node usada no CI e na imagem.
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
+    commit-message:
+      prefix: "build(deps)"
+  - package-ecosystem: "docker"
+    directories: ["/docker"]
+    schedule:
+      interval: "weekly"
+    cooldown:
+      default-days: 7
+    commit-message:
+      prefix: "build(deps)"
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    cooldown:
+      default-days: 7
+    commit-message:
+      prefix: "ci(deps)"
