@@ -10,6 +10,9 @@ import { authService } from '../../src/services/auth.service';
 import { tokenService } from '../../src/services/token.service';
 import { userService } from '../../src/services/user.service';
 
+// Browsers always send Origin on these requests, and the API refuses cookie requests without it.
+const ORIGIN = process.env['ALLOWED_ORIGINS']?.split(',')[0] ?? 'http://localhost:3000';
+
 const postgres = process.env['AUTHCORE_POSTGRES_TEST'] === '1' ? describe : describe.skip;
 
 postgres('Sessões com PostgreSQL real', () => {
@@ -31,7 +34,7 @@ postgres('Sessões com PostgreSQL real', () => {
       role: UserRole.USER, status: UserStatus.ACTIVE, emailVerifiedAt: new Date() });
     const app = createApp();
     const browser = request.agent(app);
-    const login = await browser.post('/api/v1/auth/login').send({ email, password: 'StartPassword1!' });
+    const login = await browser.post('/api/v1/auth/login').set('Origin', ORIGIN).send({ email, password: 'StartPassword1!' });
     expect(login.status).toBe(200);
     expect(login.body.data).toEqual({
       user: expect.objectContaining({ email, name: 'Fabrício Júnio' }),
@@ -44,15 +47,15 @@ postgres('Sessões com PostgreSQL real', () => {
     expect(cookie[0]).toContain('SameSite=Strict');
     expect(cookie[0]).toContain('Path=/api/v1/auth/refresh');
 
-    const refresh = await browser.post('/api/v1/auth/refresh').send({});
+    const refresh = await browser.post('/api/v1/auth/refresh').set('Origin', ORIGIN).send({});
     expect(refresh.status).toBe(200);
     expect(refresh.body.data).toEqual({ accessToken: expect.any(String), expiresIn: expect.any(Number) });
     expect(refresh.body.data.accessToken).not.toBe(login.body.data.accessToken);
     const bearer = `Bearer ${refresh.body.data.accessToken}`;
     expect((await browser.get('/api/v1/auth/me').set('Authorization', bearer)).status).toBe(200);
-    expect((await browser.post('/api/v1/auth/logout').set('Authorization', bearer).send({})).status).toBe(200);
+    expect((await browser.post('/api/v1/auth/logout').set('Origin', ORIGIN).set('Authorization', bearer).send({})).status).toBe(200);
     expect((await browser.get('/api/v1/auth/me').set('Authorization', bearer)).status).toBe(401);
-    expect((await browser.post('/api/v1/auth/refresh').send({})).status).toBe(401);
+    expect((await browser.post('/api/v1/auth/refresh').set('Origin', ORIGIN).send({})).status).toBe(401);
   });
 
   it('aceita nome acentuado e mantém cadastro HTTP pendente sem tokens', async () => {
