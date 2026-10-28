@@ -1,6 +1,16 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
+import { readFileSync } from 'fs';
+
+// vercel.json is the single source of the security headers; `vite preview` serves the same ones,
+// so the end-to-end tests run under the policy that production uses.
+const vercel = JSON.parse(readFileSync(path.resolve(__dirname, 'vercel.json'), 'utf-8')) as {
+  headers: { source: string; headers: { key: string; value: string }[] }[];
+};
+const securityHeaders = Object.fromEntries(
+  vercel.headers.find((h) => h.source === '/(.*)')!.headers.map((h) => [h.key, h.value]),
+);
 
 export default defineConfig(({ mode }) => ({
   plugins: [react()],
@@ -17,6 +27,9 @@ export default defineConfig(({ mode }) => ({
         changeOrigin: true,
       },
     },
+  },
+  preview: {
+    headers: securityHeaders,
   },
   build: {
     outDir: 'dist',
@@ -42,5 +55,6 @@ export default defineConfig(({ mode }) => ({
     environment: 'jsdom',
     globals: true,
     include: ['src/**/*.{test,spec}.{ts,tsx}'],
+    exclude: ['e2e/**', 'node_modules/**'],
   },
 }));

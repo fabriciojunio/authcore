@@ -1,4 +1,5 @@
 import styles from './AuditPage.module.css'
+import { ArrowRight, Download, Search } from 'lucide-react'
 
 const auditLog = [
   { id: 'a1', actor: 'alice@acme.com',     action: 'user.create',         target: 'bob@corp.io',           ip: '192.168.1.10', time: '28/05 09:14' },
@@ -30,11 +31,11 @@ export default function AuditPage() {
         <span className={styles.pageBadge}>{auditLog.length} eventos</span>
         <div className={styles.pageBarRight}>
           <div className={styles.searchBox}>
-            <i className="ti ti-search" aria-hidden="true" />
+            <Search size={16} aria-hidden="true" />
             <input className={styles.searchInp} placeholder="Filtrar por ator ou ação…" aria-label="Buscar auditoria" />
           </div>
           <button className={styles.btnOutline}>
-            <i className="ti ti-download" aria-hidden="true" style={{ fontSize: 14 }} />
+            <Download size={14} aria-hidden="true" />
             Exportar
           </button>
         </div>
@@ -73,7 +74,7 @@ export default function AuditPage() {
           <button className={`${styles.pagBtn} ${styles.pagActive}`}>1</button>
           <button className={styles.pagBtn}>2</button>
           <button className={styles.pagBtn} aria-label="Próxima página">
-            <i className="ti ti-arrow-right" aria-hidden="true" style={{ fontSize: 12 }} />
+            <ArrowRight size={12} aria-hidden="true" />
           </button>
         </div>
       </div>
