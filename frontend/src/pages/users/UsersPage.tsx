@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useAuthStore } from '../../store/authStore'
 import { api } from '../../services/api'
 import styles from '../UsersPage.module.css'
+import { ArrowRight, MoreHorizontal, Pencil, Plus, Search, SlidersHorizontal } from 'lucide-react'
 
 interface User {
   id: string; name: string; email: string
@@ -20,7 +21,7 @@ const DEMO_USERS: User[] = [
 const avatarColors: Record<string, { bg: string; color: string }> = {
   admin:   { bg: 'rgba(100,96,240,0.15)', color: '#8b87ff' },
   manager: { bg: 'rgba(59,130,246,0.12)', color: '#3b82f6' },
-  user:    { bg: 'rgba(255,255,255,0.06)', color: '#5a5a70' },
+  user:    { bg: 'rgba(255,255,255,0.06)', color: '#85859e' },
 }
 
 function initials(name: string) {
@@ -55,15 +56,15 @@ export default function UsersPage() {
         {displayData && <span className={styles.pageBadge}>{displayData.total.toLocaleString('pt-BR')}</span>}
         <div className={styles.pageBarRight}>
           <div className={styles.searchBox}>
-            <i className="ti ti-search" aria-hidden="true" />
+            <Search size={16} aria-hidden="true" />
             <input className={styles.searchInp} placeholder="Buscar nome ou e-mail…" aria-label="Buscar usuários" />
           </div>
           <button className={styles.btnOutline} aria-label="Filtros">
-            <i className="ti ti-adjustments-horizontal" aria-hidden="true" style={{ fontSize: 14 }} />
+            <SlidersHorizontal size={14} aria-hidden="true" />
             Filtros
           </button>
           <button className={styles.btnPrimary} aria-label="Convidar usuário">
-            <i className="ti ti-plus" aria-hidden="true" style={{ fontSize: 14 }} />
+            <Plus size={14} aria-hidden="true" />
             Convidar
           </button>
         </div>
@@ -130,10 +131,10 @@ export default function UsersPage() {
 
               <div className={styles.rowActions}>
                 <button className={styles.rowBtn} aria-label={`Editar ${user.name}`}>
-                  <i className="ti ti-edit" aria-hidden="true" />
+                  <Pencil size={16} aria-hidden="true" />
                 </button>
                 <button className={styles.rowBtn} aria-label="Mais opções">
-                  <i className="ti ti-dots" aria-hidden="true" />
+                  <MoreHorizontal size={16} aria-hidden="true" />
                 </button>
               </div>
             </div>
@@ -154,7 +155,7 @@ export default function UsersPage() {
             <button className={styles.pagBtn}>2</button>
             <button className={styles.pagBtn}>3</button>
             <button className={styles.pagBtn} aria-label="Próxima página">
-              <i className="ti ti-arrow-right" aria-hidden="true" style={{ fontSize: 12 }} />
+              <ArrowRight size={12} aria-hidden="true" />
             </button>
           </div>
         </div>
