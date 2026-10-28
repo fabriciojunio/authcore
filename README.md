@@ -1,208 +1,177 @@
 # AuthCore
 
+*[Read this in English](README.en.md)*
+
 [![Demo](https://img.shields.io/badge/Demo-authcore.vercel.app-000000?style=flat-square&logo=vercel&logoColor=white)](https://frontend-tan-mu-38.vercel.app)
+
+Serviço de autenticação e autorização com cadastro de produtos por dono. Login com JWT e renovação
+por cookie HttpOnly, 2FA por TOTP, papéis (ADMIN, MANAGER, USER), posse de recurso conferida no
+servidor e upload de imagem tratado. O foco do projeto é segurança de aplicação: cada controle tem
+um teste que o prova, e o que ainda falta está escrito.
 
 ## Estado dos fluxos
 
-Login e renovação utilizam o contrato HTTP da API: `data.accessToken` e cookie
-HttpOnly para refresh. O cadastro retorna uma mensagem e mantém a conta pendente;
-não autentica automaticamente. Envio de e-mail e ativação autônoma ainda não estão
-completos. O modo demonstração usa dados locais e não concede acesso à API.
+Login e renovação usam o contrato HTTP da API: `data.accessToken` e cookie HttpOnly para o refresh.
+O cadastro retorna uma mensagem e deixa a conta pendente; não autentica sozinho. O envio de e-mail e
+a ativação autônoma ainda não estão completos. O modo demonstração usa dados locais e não dá acesso
+à API.
 
-Aplicar a migração de `sessionVersion` antes da atualização do backend. A revogação
-passa a consultar a versão persistida em cada requisição autenticada. Consulte
-[SECURITY.md](SECURITY.md) para controles, riscos e limites conhecidos.
+Antes de atualizar o back-end, aplique as migrações nesta ordem: a de `sessionVersion` e a
+`EncryptTwoFactorSecret`, que cifra os segredos TOTP já gravados e precisa da mesma `ENCRYPTION_KEY`
+da aplicação.
 
-## Tech Stack
+## Tecnologias
 
-**Backend:** Node.js · TypeScript · Express · TypeORM · PostgreSQL · Redis  
-**Frontend:** React 18 · TypeScript · Vite · Zustand · React Query  
-**Infrastructure:** Docker · Nginx · GitHub Actions  
-**Security:** Helmet · JWT HS256 · bcrypt · Rate Limiting · CORS · HPP  
+**Back-end:** Node.js 22 · TypeScript · Express · TypeORM · PostgreSQL · Redis · Zod
+**Front-end:** React 18 · TypeScript · Vite · Zustand · React Query
+**Infraestrutura:** Docker · Nginx · GitHub Actions
+**Segurança:** Helmet · JWT HS256 · bcrypt · AES-256-GCM · limite de requisições · CORS · HPP
 
----
-
-## Architecture
+## Arquitetura
 
 ```
 authcore/
-├── backend/                     # Node.js API
+├── backend/                     # API Node.js
 │   ├── src/
-│   │   ├── config/              # App, DB, Redis, Swagger config
-│   │   ├── controllers/         # HTTP request handlers (thin layer)
-│   │   ├── errors/              # Custom error hierarchy
-│   │   ├── middlewares/         # Auth, error, validation, security
-│   │   ├── models/              # TypeORM entities
-│   │   ├── repositories/        # Data access layer (Repository Pattern)
-│   │   ├── routes/              # Route definitions with Swagger docs
-│   │   ├── services/            # Business logic (Service Layer)
-│   │   └── validators/          # Zod schemas for input validation
+│   │   ├── config/              # aplicação, banco, Redis, Swagger
+│   │   ├── controllers/         # entrada HTTP, camada fina
+│   │   ├── errors/              # hierarquia de erros
+│   │   ├── middlewares/         # autenticação, erro, validação, segurança
+│   │   ├── migrations/          # TypeORM, incluindo a cifra do segredo TOTP
+│   │   ├── models/              # entidades TypeORM
+│   │   ├── repositories/        # acesso a dados (Repository)
+│   │   ├── routes/              # rotas com schemas Zod e Swagger
+│   │   ├── services/            # regras de negócio
+│   │   └── utils/               # cifra de campo, logger, sanitizador
 │   └── tests/
-│       ├── unit/                # Unit tests (services, utils)
-│       └── integration/         # Integration tests (routes, DB)
-├── frontend/                    # React SPA
-│   └── src/
-│       ├── services/            # API client with interceptors
-│       └── store/               # Zustand global state
-├── docker/
-│   ├── Dockerfile.backend       # Multi-stage production image
-│   ├── nginx/                   # Reverse proxy config
-│   └── postgres/                # DB initialization
-└── docker-compose.yml           # Full stack orchestration
+│       ├── unit/
+│       └── integration/         # rotas por HTTP, IDOR, Postgres real
+├── frontend/                    # SPA React
+├── docker/                      # imagens, nginx e init do Postgres
+├── docs/seguranca/              # modelo de ameaças e checklist ASVS
+└── docker-compose.yml
 ```
 
-### Design Patterns Applied
-
-| Pattern | Where |
+| Padrão | Onde |
 |---|---|
-| **Repository Pattern** | `BaseRepository<T>` abstracts all DB access |
-| **Service Layer** | Business logic isolated from HTTP layer |
-| **Factory Pattern** | `createApp()` separates app from server |
-| **Strategy Pattern** | Auth middleware roles via `authorize(...roles)` |
-| **Observer Pattern** | Event emitter for auth logout events |
-| **Singleton** | DB, Redis, Logger instances |
+| Repository | `BaseRepository<T>` concentra o acesso ao banco |
+| Camada de serviço | regra de negócio separada do HTTP |
+| Factory | `createApp()` separa a aplicação do servidor |
+| Strategy | papéis por rota com `authorize(...roles)` |
+| Singleton | conexões de banco, Redis e logger |
 
----
+## Segurança
 
-## Security Features
+### Autenticação e sessão
+- Token de acesso de 15 min e refresh de 7 dias em cookie HttpOnly, `SameSite=Strict`
+- Rotação do refresh com detecção de reuso; refresh guardado como SHA-256
+- `sessionVersion` conferida no banco a cada requisição: logout e troca de senha revogam tudo
+- Bloqueio após 5 erros e comparação fictícia para conta inexistente
+- 2FA por TOTP no login, com o segredo cifrado no banco (AES-256-GCM, chave por HKDF)
 
-### Authentication
-- JWT access tokens (15min) + httpOnly refresh tokens (7 days)
-- Refresh token rotation with reuse detection
-- Token blacklist via Redis on logout
-- Account lockout after 5 failed attempts
-- Password comparison with a dummy-hash path for unknown accounts; enumeration risks remain
-- 2FA via TOTP (Google Authenticator compatible)
+### Autorização
+- Negação por padrão; o papel vem do banco a cada requisição, não do token
+- Posse do produto conferida no serviço: um usuário não edita, apaga nem envia imagem para produto
+  de outro, provado por HTTP em `ownership.routes.test.ts`
+- Rotas de perfil usam o id do token, nunca o da URL
 
-### Network Security
-- Helmet with strict CSP, HSTS, X-Frame-Options, noSniff
-- Rate limiting: 100 req/15min global, 10 req/15min on auth
-- HTTP Parameter Pollution (HPP) protection
-- XSS sanitization on all inputs
-- Body size limits (10KB max)
-- CORS whitelist only
+### Entrada, arquivos e rede
+- Zod em todo corpo, consulta e parâmetro; corpo limitado a 10 KB
+- Sanitizador que descarta `__proto__`, `constructor` e `prototype`
+- Upload de até 5 MB por arquivo e 5 por requisição, decodificado pelo `sharp`; o que ele recusa é
+  apagado do disco
+- CSRF barrado por `Origin`/`Referer` nas rotas com cookie
+- Helmet, CORS com lista explícita, HPP, 100 requisições por 15 min no geral e limite próprio nas
+  rotas de autenticação
+- Front com CSP sem script inline, Trusted Types e nenhum recurso de terceiro
 
-### Data Security
-- bcrypt with 12 rounds for passwords
-- Sensitive fields excluded from DB selects by default
-- Soft deletes; retention and recovery require an operational policy
-- Audit log model; deployment and coverage of events require validation
-- Required environment configuration validated at startup
-- Production log configuration; review identifiers and retention in all log destinations
+### Dados e infraestrutura
+- bcrypt 12; campos sensíveis fora das consultas e das respostas
+- E-mail fora dos logs; o logger troca por `[REDACTED]` senha, token, segredo, cookie e Authorization
+- Contêineres sem root, imagens fixadas por digest, `no-new-privileges`
+- Postgres com autenticação `scram-sha-256`; a API nunca fica exposta sem o Nginx na frente
 
-### Infrastructure
-- Non-root Docker containers
-- Read-only filesystem where possible
-- `dumb-init` for proper signal handling
-- Nginx as reverse proxy (API never exposed directly)
-- PostgreSQL `scram-sha-256` authentication
+### Pipeline
+- CodeQL `security-extended`, OSV-Scanner, `npm audit` e gitleaks a cada push
+- Dependabot com espera de 7 dias; actions fixadas por SHA
+- Achado sem aceite registrado reprova o CI, e aceite vencido também
 
----
+O detalhe está no [modelo de ameaças](docs/seguranca/modelo-de-ameacas.md), no
+[checklist OWASP ASVS 5.0](docs/seguranca/asvs.md) e no [SECURITY.md](SECURITY.md), que também diz
+como relatar uma falha.
 
-## Quick Start
+## Como rodar
 
-### Prerequisites
-- Docker & Docker Compose
-- Node.js 20+
+Pré-requisitos: Docker com Compose e Node.js 22.
 
-### Development
 ```bash
-# 1. Clone and install
 npm install
-
-# 2. Setup environment
-cp backend/.env.example backend/.env
-# Edit backend/.env with your values
-
-# 3. Start infrastructure
+cp backend/.env.example backend/.env    # preencha os valores
 docker-compose up postgres redis -d
-
-# 4. Run migrations
-cd backend && npm run migration:run
-
-# 5. Start development servers
+cd backend && npm run migration:run && cd ..
 npm run dev
 ```
 
-### Production
-```bash
-# Build and start all services
-docker-compose up -d --build
+Produção local:
 
-# Check status
+```bash
+docker-compose up -d --build
 docker-compose ps
 curl http://localhost/health
 ```
 
----
+## API
 
-## API Documentation
-
-Available at `http://localhost:3001/api-docs` (development only)
-
-### Endpoints
+Documentação interativa em `http://localhost:3001/api-docs`, só em desenvolvimento.
 
 ```
-POST   /api/v1/auth/register     Register new user
-POST   /api/v1/auth/login        Login
-POST   /api/v1/auth/refresh      Refresh access token
-POST   /api/v1/auth/logout       Logout (requires auth)
-GET    /api/v1/auth/me           Current user info
+POST   /api/v1/auth/register          cadastro (conta pendente)
+POST   /api/v1/auth/login             login, com código TOTP quando a conta tem 2FA
+POST   /api/v1/auth/refresh           renova o token de acesso
+POST   /api/v1/auth/logout            sai e revoga as sessões
+GET    /api/v1/auth/me                usuário atual
 
-GET    /api/v1/users/profile     Get own profile
-PATCH  /api/v1/users/profile     Update profile
-PATCH  /api/v1/users/change-password  Change password
-DELETE /api/v1/users/account     Delete account
-GET    /api/v1/users             List users (admin only)
-GET    /api/v1/users/:id         Get user (admin/manager)
+GET    /api/v1/users/profile          próprio perfil
+PATCH  /api/v1/users/profile          altera o perfil
+PATCH  /api/v1/users/change-password  troca a senha
+DELETE /api/v1/users/account          exclui a conta
+GET    /api/v1/users                  lista usuários (ADMIN)
+GET    /api/v1/users/:id              usuário (ADMIN; MANAGER só o próprio)
 
-GET    /health                   Full health check
-GET    /health/ready             Readiness probe (k8s)
-GET    /health/live              Liveness probe (k8s)
+GET    /health                        saúde completa
+GET    /health/ready                  readiness
+GET    /health/live                   liveness
 ```
 
----
-
-## Testing
+## Testes
 
 ```bash
-# Run all tests
-npm run test
-
-# With coverage report
-npm run test:coverage
-
-# Watch mode
+npm run test               # todos
+npm run test:coverage      # com cobertura
 cd backend && npm run test:watch
 ```
 
-Coverage thresholds enforced: 80% lines, 70% branches
+264 testes no back-end. Oito deles sobem PostgreSQL de verdade e só rodam com
+`AUTHCORE_POSTGRES_TEST=1`; no CI rodam sempre. A cobertura mínima exigida é 80% de linhas e 70% de
+ramos.
 
----
+## Variáveis de ambiente
 
-## Environment Variables
+Todas estão em `backend/.env.example`. Obrigatórias em produção:
 
-See `backend/.env.example` for all required variables with descriptions.
+- `JWT_ACCESS_SECRET`: 64 caracteres ou mais, aleatórios
+- `JWT_REFRESH_SECRET`: 64 caracteres ou mais, diferente do de acesso
+- `ENCRYPTION_KEY`: 32 caracteres ou mais; cifra o segredo TOTP, então trocá-la exige recifrar a coluna
+- `DB_PASSWORD` e `REDIS_PASSWORD`: senhas fortes
 
-**Required for production:**
-- `JWT_ACCESS_SECRET`: min 64 chars, cryptographically random
-- `JWT_REFRESH_SECRET`: min 64 chars, different from access secret
-- `ENCRYPTION_KEY`: exactly 32 chars
-- `DB_PASSWORD`: strong password
-- `REDIS_PASSWORD`: strong password
-
-Generate secrets:
 ```bash
 node -e "console.log(require('crypto').randomBytes(64).toString('hex'))"
 ```
 
----
+## Qualidade de código
 
-## Code Quality
-
-- TypeScript strict mode enabled
-- ESLint with `no-console`, `no-any`, `no-floating-promises` rules
-- Zod validation on all inputs (request body, query, params)
-- Custom error hierarchy (`AppError → ValidationError → AuthenticationError`)
-- All async routes wrapped in `express-async-errors`
-- Graceful shutdown with 30s timeout
+- TypeScript em modo estrito
+- ESLint com `no-console`, `no-explicit-any` e `no-floating-promises`
+- Hierarquia de erros (`AppError`, `ValidationError`, `AuthenticationError`)
+- Rotas assíncronas com `express-async-errors`
+- Desligamento gracioso com limite de 30 s
