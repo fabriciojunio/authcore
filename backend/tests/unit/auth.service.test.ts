@@ -3,6 +3,7 @@ import { AuthService } from '../../src/services/auth.service';
 import { userRepository } from '../../src/repositories/user.repository';
 import { tokenService } from '../../src/services/token.service';
 import { cacheService } from '../../src/services/cache.service';
+import { logger } from '../../src/config/logger';
 import { User, UserStatus, UserRole } from '../../src/models/user.entity';
 import {
   AuthenticationError,
@@ -77,6 +78,19 @@ describe('AuthService', () => {
       });
 
       expect(created.message).toBe(existing.message);
+    });
+
+    it('should keep the e-mail address out of the logs on both paths', async () => {
+      mockUserRepo.findByEmail.mockResolvedValueOnce(null);
+      mockUserRepo.create.mockResolvedValue({ id: 'uuid-1', email: 'new@test.com' } as User);
+      await authService.register({ name: 'New User', email: 'new@test.com', password: 'SecurePass123!' });
+
+      mockUserRepo.findByEmail.mockResolvedValueOnce({ id: 'existing' } as User);
+      await authService.register({ name: 'Existing User', email: 'existing@test.com', password: 'SecurePass123!' });
+
+      const logged = JSON.stringify([...(logger.info as jest.Mock).mock.calls, ...(logger.warn as jest.Mock).mock.calls]);
+      expect(logged).toContain('uuid-1');
+      expect(logged).not.toMatch(/@test.com/);
     });
   });
 
