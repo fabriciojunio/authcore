@@ -48,3 +48,7 @@ uploads/
 *.pid.lock
 
 .github/java-upgrade/
+
+# Playwright
+test-results/
+playwright-report/
