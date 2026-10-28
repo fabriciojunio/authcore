@@ -5,7 +5,7 @@ import express from 'express';
 import cookieParser from 'cookie-parser';
 import swaggerUi from 'swagger-ui-express';
 import { config } from '@config/app.config';
-import { applySecurityMiddleware } from '@middlewares/security.middleware';
+import { applySecurityMiddleware, csrfProtection } from '@middlewares/security.middleware';
 import { requestLogger } from '@middlewares/logger.middleware';
 import { errorHandler, notFoundHandler } from '@middlewares/error.middleware';
 import { sanitizeBody } from '@middlewares/validation.middleware';
@@ -29,6 +29,7 @@ export function createApp(): express.Application {
   app.use(express.json({ limit: '10kb' })); // Limit body size
   app.use(express.urlencoded({ extended: true, limit: '10kb' }));
   app.use(cookieParser());
+  app.use(csrfProtection);
 
   // ─── Global sanitization ─────────────────────────────────────────
   app.use(sanitizeBody);

@@ -47,7 +47,7 @@ export class AuthService {
     if (existing) {
       // Não revela que o e-mail já existe; um e-mail de "conta já cadastrada"
       // seria enviado em produção.
-      logger.warn('Registration attempt for existing email', { email });
+      logger.warn('Registration attempt for existing email', { userId: existing.id });
       return { message: AuthService.REGISTER_MESSAGE };
     }
 
@@ -59,7 +59,7 @@ export class AuthService {
     });
 
     // In production: send verification email here
-    logger.info('User registered', { userId: user.id, email: user.email });
+    logger.info('User registered', { userId: user.id });
 
     return { message: AuthService.REGISTER_MESSAGE };
   }

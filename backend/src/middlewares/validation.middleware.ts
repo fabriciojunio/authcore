@@ -6,6 +6,11 @@ const xss = require('xss') as (input: string) => string;
 
 type RequestTarget = 'body' | 'query' | 'params';
 
+// JSON.parse keeps "__proto__" as an own key; copying it with a plain assignment would
+// replace the new object's prototype. These keys are never valid field names here.
+const FORBIDDEN_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+const OPAQUE_KEYS = new Set(['password', 'confirmPassword', 'currentPassword', 'newPassword', 'confirmNewPassword']);
+
 export function validate(schema: ZodSchema, target: RequestTarget = 'body') {
   return (req: Request, _res: Response, next: NextFunction): void => {
     try {
@@ -37,13 +42,13 @@ export function sanitizeBody(req: Request, _res: Response, next: NextFunction): 
       return value.map(sanitizeValue);
     }
     if (value && typeof value === 'object') {
-      const sanitized: Record<string, unknown> = {};
-      for (const [key, val] of Object.entries(value)) {
-        // Senhas são opacas: normalizá-las torna credenciais diferentes equivalentes.
-        sanitized[key] = ['password', 'confirmPassword', 'currentPassword', 'newPassword', 'confirmNewPassword'].includes(key)
-          ? val : sanitizeValue(val);
-      }
-      return sanitized;
+      // Object.fromEntries defines own properties, so no key can reach a setter or the prototype.
+      return Object.fromEntries(
+        Object.entries(value)
+          .filter(([key]) => !FORBIDDEN_KEYS.has(key))
+          // Senhas são opacas: normalizá-las torna credenciais diferentes equivalentes.
+          .map(([key, val]) => [key, OPAQUE_KEYS.has(key) ? val : sanitizeValue(val)]),
+      );
     }
     return value;
   }

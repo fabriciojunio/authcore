@@ -7,6 +7,24 @@ import { AppError, HttpStatus } from '@errors/AppError';
 import { logger } from '@config/logger';
 import fs from 'fs/promises';
 
+/**
+ * Resolves a path and refuses anything outside the upload folder. A prefix check is not enough:
+ * "/app/uploads-evil/x" starts with "/app/uploads".
+ */
+export function resolveInsideUploads(filePath: string): string {
+  const base = path.resolve(config.upload.path);
+  const resolved = path.resolve(filePath);
+  const relative = path.relative(base, resolved);
+  if (!relative || relative.startsWith('..') || path.isAbsolute(relative)) {
+    throw new AppError('Invalid file path', HttpStatus.BAD_REQUEST, 'INVALID_PATH');
+  }
+  return resolved;
+}
+
+// Cada upload é lido uma vez só. O cache do libvips não ajuda e, no Windows, segura o arquivo
+// aberto e impede apagar o original.
+sharp.cache(false);
+
 // Disk storage with secure naming
 const storage = multer.diskStorage({
   destination: async (_req, _file, cb) => {
@@ -26,7 +44,8 @@ const storage = multer.diskStorage({
   },
 });
 
-// File type validation (check MIME + magic bytes)
+// O MIME vem do cliente e só barra o óbvio. A prova de que é imagem é o sharp decodificar o
+// arquivo em processImage; o que ele não lê é apagado e volta como 400.
 const fileFilter = (
   _req: Express.Request,
   file: Express.Multer.File,
@@ -64,38 +83,36 @@ export async function processImage(
     format?: 'jpeg' | 'png' | 'webp';
   } = {}
 ): Promise<string> {
+  const { width = 800, height, quality = 80, format = 'webp' } = options;
+
+  const inputPath = resolveInsideUploads(filePath);
+  // O nome de saída nunca é o de entrada: o sharp não lê e grava o mesmo arquivo, e um .webp enviado
+  // já falhava por isso.
+  const outputPath = resolveInsideUploads(
+    path.join(path.dirname(inputPath), `${path.basename(inputPath, path.extname(inputPath))}-${width}w.${format}`),
+  );
+
   try {
-    const { width = 800, height, quality = 80, format = 'webp' } = options;
-
-    const outputPath = filePath.replace(path.extname(filePath), `.${format}`);
-
-    await sharp(filePath)
+    await sharp(inputPath)
       .resize(width, height, { fit: 'inside', withoutEnlargement: true })
       .toFormat(format, { quality })
       .toFile(outputPath);
 
-    // Remove original if format changed
-    if (outputPath !== filePath) {
-      await fs.unlink(filePath).catch(() => {});
-    }
+    await deleteFile(inputPath);
 
-    logger.info('Image processed', { input: filePath, output: outputPath });
+    logger.info('Image processed', { input: path.basename(inputPath), output: path.basename(outputPath) });
     return outputPath;
   } catch (error) {
-    logger.error('Image processing failed', { filePath, error });
-    throw new AppError('Image processing failed', HttpStatus.INTERNAL_SERVER_ERROR, 'IMAGE_PROCESSING_ERROR');
+    logger.warn('Image processing failed', { file: path.basename(inputPath), error });
+    await deleteFile(inputPath);
+    await deleteFile(outputPath);
+    throw new AppError('File is not a valid image', HttpStatus.BAD_REQUEST, 'INVALID_IMAGE');
   }
 }
 
 export async function deleteFile(filePath: string): Promise<void> {
   try {
-    // Prevent path traversal
-    const safeBase = path.resolve(config.upload.path);
-    const safePath = path.resolve(filePath);
-    if (!safePath.startsWith(safeBase)) {
-      throw new AppError('Invalid file path', HttpStatus.BAD_REQUEST, 'INVALID_PATH');
-    }
-    await fs.unlink(safePath);
+    await fs.unlink(resolveInsideUploads(filePath));
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
       logger.warn('Failed to delete file', { filePath, error });

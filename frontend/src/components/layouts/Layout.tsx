@@ -4,6 +4,7 @@ import { useAuthStore } from '../../store/authStore'
 import { useNotificationStore } from '../../store/notificationStore'
 import { useWebSocket } from '../../hooks/useWebSocket'
 import styles from './Layout.module.css'
+import { Bell, BellOff, Info, LogOut, Settings } from 'lucide-react'
 
 const navGroups = [
   {
@@ -113,7 +114,7 @@ export function Layout() {
               <div className={styles.userRole}>{user?.role}</div>
             </div>
             <button className={styles.iconBtn} onClick={handleLogout} aria-label="Sair da conta">
-              <i className="ti ti-logout" aria-hidden="true" />
+              <LogOut size={16} aria-hidden="true" />
             </button>
           </div>
         </div>
@@ -135,7 +136,7 @@ export function Layout() {
                 aria-label={`${unreadCount} notificações`}
                 aria-expanded={notifOpen}
               >
-                <i className="ti ti-bell" aria-hidden="true" />
+                <Bell size={16} aria-hidden="true" />
                 {unreadCount > 0 && (
                   <span className={styles.notifBadge}>{unreadCount > 9 ? '9+' : unreadCount}</span>
                 )}
@@ -153,7 +154,7 @@ export function Layout() {
                   <div className={styles.notifList}>
                     {notifications.length === 0 ? (
                       <div className={styles.notifEmpty}>
-                        <i className="ti ti-bell-off" aria-hidden="true" />
+                        <BellOff size={16} aria-hidden="true" />
                         Nenhuma notificação
                       </div>
                     ) : (
@@ -182,14 +183,14 @@ export function Layout() {
             </div>
 
             <NavLink to="/settings" className={styles.iconBtn} aria-label="Configurações">
-              <i className="ti ti-settings" aria-hidden="true" />
+              <Settings size={16} aria-hidden="true" />
             </NavLink>
           </div>
         </header>
 
         {isDemo ? (
           <div className={styles.demoBanner}>
-            <i className="ti ti-info-circle" aria-hidden="true" />
+            <Info size={16} aria-hidden="true" />
             Modo demonstração: dados fictícios, sem conexão com o servidor
           </div>
         ) : (

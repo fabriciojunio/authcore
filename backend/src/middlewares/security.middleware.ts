@@ -8,7 +8,35 @@ import hpp from 'hpp';
 import compression from 'compression';
 import { config } from '@config/app.config';
 import { logger } from '@config/logger';
-import { RateLimitError } from '@errors/AppError';
+import { AppError, HttpStatus, RateLimitError } from '@errors/AppError';
+
+const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
+
+function requestOrigin(req: Request): string | undefined {
+  const origin = req.headers.origin;
+  if (origin) return origin;
+  const referer = req.headers.referer;
+  if (!referer) return undefined;
+  try {
+    return new URL(referer).origin;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * CSRF protection for routes that authenticate by cookie (refresh, logout). SameSite=Strict
+ * already stops other sites, but not sibling subdomains; so a state-changing request that
+ * carries cookies must also name an allowed origin. Bearer-only API clients send no cookie
+ * and are not affected.
+ */
+export function csrfProtection(req: Request, _res: Response, next: NextFunction): void {
+  if (SAFE_METHODS.has(req.method) || !req.headers.cookie) return next();
+  const origin = requestOrigin(req);
+  if (origin && config.cors.allowedOrigins.includes(origin)) return next();
+  logger.warn('Blocked cookie request without an allowed origin', { origin: origin ?? 'missing', path: req.path });
+  next(new AppError('Request origin not allowed', HttpStatus.FORBIDDEN, 'CSRF_ORIGIN_REJECTED'));
+}
 
 export function applySecurityMiddleware(app: Express): void {
   // ─── Helmet: Secure HTTP headers ───────────────────────────────
@@ -53,8 +81,11 @@ export function applySecurityMiddleware(app: Express): void {
         if (config.cors.allowedOrigins.includes(origin)) {
           callback(null, true);
         } else {
+          // Denied without an error: throwing here made the API answer 500 to every request from
+          // an unknown origin. With no CORS headers the browser cannot read the response, and a
+          // state-changing request that carries cookies is refused by csrfProtection with 403.
           logger.warn('Blocked CORS request from unauthorized origin', { origin });
-          callback(new Error('Not allowed by CORS'));
+          callback(null, false);
         }
       },
       methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],

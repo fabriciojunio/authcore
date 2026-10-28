@@ -5,6 +5,7 @@ import { z } from 'zod'
 import { Link } from 'react-router-dom'
 import { useAuthStore } from '../../store/authStore'
 import styles from '../AuthPage.module.css'
+import { Play } from 'lucide-react'
 
 const schema = z.object({
   email:    z.string().email('E-mail inválido'),
@@ -129,7 +130,7 @@ export default function LoginPage() {
           </div>
 
           <button className={styles.btnDemo} onClick={loginAsDemo} type="button">
-            <i className="ti ti-player-play" aria-hidden="true" />
+            <Play size={16} aria-hidden="true" />
             Entrar como demonstração
           </button>
           <p className={styles.demoHint}>Acesso completo sem cadastro · dados fictícios</p>

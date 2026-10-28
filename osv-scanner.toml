@@ -1,0 +1,7 @@
+# Accepted findings for OSV-Scanner. Each entry expires: the scan fails again on that date,
+# so the decision is reviewed instead of forgotten. See "Riscos aceitos" in SECURITY.md.
+
+[[IgnoredVulns]]
+id = "GHSA-gcqx-w48m-w2h4"
+ignoreUntil = 2027-04-28T00:00:00Z
+reason = "deepmerge comes only through Jest and exists only in tests; no fixed release exists and npm's suggested fix downgrades Jest to a 2020 version."
