@@ -7,7 +7,7 @@
   --accent:  #6460f0;
   --accent2: #8b87ff;
   --txt:     #e8e8f0;
-  --muted:   #5a5a70;
+  --muted:   #85859e; /* 4.5:1 or more on every panel background (WCAG 1.4.3) */
   --green:   #22c55e;
   --red:     #ef4444;
   --yellow:  #f59e0b;
