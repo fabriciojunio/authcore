@@ -7,17 +7,20 @@ import { z } from 'zod';
 
 const router = Router();
 
-const createProductSchema = z.object({
+const productSchema = z.object({
   name: z.string().min(2).max(200).trim(),
   description: z.string().max(5000).optional(),
   price: z.number().min(0).max(999999.99),
   stock: z.number().int().min(0),
   sku: z.string().max(100).optional(),
   category: z.string().max(100).optional(),
-  status: z.enum(['active', 'inactive', 'draft']).default('draft'),
+  status: z.enum(['active', 'inactive', 'draft']),
 });
 
-const updateProductSchema = createProductSchema.partial();
+const createProductSchema = productSchema.extend({ status: productSchema.shape.status.default('draft') });
+
+// Sem o default: .partial() o mantém, e um PATCH só com o nome voltava o produto para rascunho.
+const updateProductSchema = productSchema.partial();
 
 router.use(authenticate);
 
