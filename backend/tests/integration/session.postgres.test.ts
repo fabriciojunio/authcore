@@ -191,7 +191,7 @@ postgres('Sessões com PostgreSQL real', () => {
     expect(row.stored).toMatch(/^v1:/);
     expect(row.stored).not.toContain(secret);
 
-    const totp = speakeasy.totp.generate({ secret, encoding: 'base32' });
+    const totp = speakeasy.totp({ secret, encoding: 'base32' });
     const login = await request(createApp()).post('/api/v1/auth/login').set('Origin', ORIGIN)
       .send({ email, password: 'StartPassword1!', totp });
     expect(login.status).toBe(200);

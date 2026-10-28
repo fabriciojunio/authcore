@@ -27,9 +27,10 @@ declare module 'speakeasy' {
   }
 
   interface Speakeasy {
+    // A biblioteca exporta totp como função que gera o código, com verify pendurado nela.
     totp: {
+      (options: TOTPGenerateOptions): string;
       verify(options: TOTPVerifyOptions): boolean;
-      generate(options: TOTPGenerateOptions): string;
     };
     generateSecret(options?: SecretOptions): SecretResult;
   }
