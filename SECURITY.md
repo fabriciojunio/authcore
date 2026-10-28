@@ -68,6 +68,11 @@ ser aplicada antes de publicar o código que a utiliza.
 Testes aprovados não certificam ausência de vulnerabilidades nem conformidade
 integral com a LGPD. Mudanças de finalidade, dados e infraestrutura exigem revisão.
 
+## Documentos
+
+[Modelo de ameaças (STRIDE)](docs/seguranca/modelo-de-ameacas.md) e [checklist OWASP ASVS 5.0](docs/seguranca/asvs.md),
+com o que está coberto, a prova de cada item e o que falta.
+
 ## Relato de vulnerabilidade
 
 Enviar detalhes para **fabricioad444@gmail.com**. Evitar divulgar dados pessoais,
