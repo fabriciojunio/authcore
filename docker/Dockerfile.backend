@@ -7,7 +7,7 @@
 # errado, porque o lockfile existe, so nao esta ali.
 
 # --- Estagio 1: dependencias de producao --------------------------------
-FROM node:20-alpine AS deps
+FROM node:22.23.3-alpine@sha256:0a7108bf6c7bf5de370ffb1a3ed6be93d405b43ff159f681a8d18c0e2bc2e402 AS deps
 
 RUN apk add --no-cache libc6-compat
 WORKDIR /app
@@ -25,7 +25,7 @@ RUN npm ci --omit=dev --workspace backend --include-workspace-root \
     && npm cache clean --force
 
 # --- Estagio 2: compilacao ----------------------------------------------
-FROM node:20-alpine AS builder
+FROM node:22.23.3-alpine@sha256:0a7108bf6c7bf5de370ffb1a3ed6be93d405b43ff159f681a8d18c0e2bc2e402 AS builder
 WORKDIR /app
 
 COPY package.json package-lock.json ./
@@ -38,7 +38,7 @@ COPY backend/src/ ./backend/src/
 RUN npm run build --workspace backend
 
 # --- Estagio 3: producao -------------------------------------------------
-FROM node:20-alpine AS production
+FROM node:22.23.3-alpine@sha256:0a7108bf6c7bf5de370ffb1a3ed6be93d405b43ff159f681a8d18c0e2bc2e402 AS production
 LABEL org.opencontainers.image.title="AuthCore API"
 LABEL org.opencontainers.image.source="https://github.com/fabriciojunio/authcore"
 
