@@ -1,0 +1,11 @@
+[
+  {
+    "rule": "js/missing-token-validation",
+    "path": "backend/src/app.ts",
+    "reason": "CodeQL only recognises CSRF protection from libraries such as csurf. The API defends cookie-authenticated requests by checking Origin (or Referer) against the allow list, a defence listed in the OWASP CSRF Prevention Cheat Sheet, on top of SameSite=Strict cookies.",
+    "mitigation": "csrfProtection in backend/src/middlewares/security.middleware.ts; tests in backend/tests/integration/auth.routes.test.ts (CSRF protection on cookie requests).",
+    "owner": "Fabrício Júnio",
+    "accepted": "2026-10-28",
+    "review": "2027-04-28"
+  }
+]
