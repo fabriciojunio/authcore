@@ -7,6 +7,20 @@ import { AppError, HttpStatus } from '@errors/AppError';
 import { logger } from '@config/logger';
 import fs from 'fs/promises';
 
+/**
+ * Resolves a path and refuses anything outside the upload folder. A prefix check is not enough:
+ * "/app/uploads-evil/x" starts with "/app/uploads".
+ */
+export function resolveInsideUploads(filePath: string): string {
+  const base = path.resolve(config.upload.path);
+  const resolved = path.resolve(filePath);
+  const relative = path.relative(base, resolved);
+  if (!relative || relative.startsWith('..') || path.isAbsolute(relative)) {
+    throw new AppError('Invalid file path', HttpStatus.BAD_REQUEST, 'INVALID_PATH');
+  }
+  return resolved;
+}
+
 // Disk storage with secure naming
 const storage = multer.diskStorage({
   destination: async (_req, _file, cb) => {
@@ -67,19 +81,22 @@ export async function processImage(
   try {
     const { width = 800, height, quality = 80, format = 'webp' } = options;
 
-    const outputPath = filePath.replace(path.extname(filePath), `.${format}`);
+    const inputPath = resolveInsideUploads(filePath);
+    const outputPath = resolveInsideUploads(
+      path.join(path.dirname(inputPath), `${path.basename(inputPath, path.extname(inputPath))}.${format}`),
+    );
 
-    await sharp(filePath)
+    await sharp(inputPath)
       .resize(width, height, { fit: 'inside', withoutEnlargement: true })
       .toFormat(format, { quality })
       .toFile(outputPath);
 
     // Remove original if format changed
-    if (outputPath !== filePath) {
-      await fs.unlink(filePath).catch(() => {});
+    if (outputPath !== inputPath) {
+      await fs.unlink(inputPath).catch(() => {});
     }
 
-    logger.info('Image processed', { input: filePath, output: outputPath });
+    logger.info('Image processed', { input: path.basename(inputPath), output: path.basename(outputPath) });
     return outputPath;
   } catch (error) {
     logger.error('Image processing failed', { filePath, error });
@@ -89,13 +106,7 @@ export async function processImage(
 
 export async function deleteFile(filePath: string): Promise<void> {
   try {
-    // Prevent path traversal
-    const safeBase = path.resolve(config.upload.path);
-    const safePath = path.resolve(filePath);
-    if (!safePath.startsWith(safeBase)) {
-      throw new AppError('Invalid file path', HttpStatus.BAD_REQUEST, 'INVALID_PATH');
-    }
-    await fs.unlink(safePath);
+    await fs.unlink(resolveInsideUploads(filePath));
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
       logger.warn('Failed to delete file', { filePath, error });
