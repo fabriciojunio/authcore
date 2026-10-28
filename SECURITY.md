@@ -53,7 +53,7 @@ dessa lista e volta a barrar um aceite quando a data de revisão passa.
 | Achado | Motivo | Revisão |
 |---|---|---|
 | CodeQL `js/missing-token-validation` em `backend/src/app.ts` | A regra só reconhece bibliotecas como `csurf`; a proteção aqui é a verificação de `Origin`/`Referer`, prevista no OWASP CSRF Prevention Cheat Sheet, com testes próprios. | 28/04/2027 |
-| `deepmerge` (severidade baixa) | Vem do Jest e só existe nos testes; a correção sugerida rebaixaria o Jest para uma versão de 2020. | na próxima versão principal do Jest |
+| `deepmerge`, GHSA-gcqx-w48m-w2h4 (baixa no npm, CVSS 5,3 no OSV) | Vem do Jest e só existe nos testes; não há versão corrigida e a sugestão do npm rebaixaria o Jest para uma versão de 2020. Registrado em [`osv-scanner.toml`](osv-scanner.toml). | 28/04/2027 |
 
 ## Validação técnica
 
