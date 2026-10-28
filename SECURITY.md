@@ -13,6 +13,9 @@
   origens permitidas, além do cookie `SameSite=Strict`. Origem desconhecida não recebe cabeçalho CORS.
 - O sanitizador global descarta as chaves `__proto__`, `constructor` e `prototype`.
 - Nome de usuário entra escapado no HTML dos e-mails; os logs de envio guardam o endereço mascarado.
+- Segredo TOTP cifrado no banco com AES-256-GCM (chave derivada de `ENCRYPTION_KEY` por HKDF e nome
+  da coluna como dado autenticado). A migração `EncryptTwoFactorSecret` cifra os valores antigos e
+  precisa rodar com a mesma chave da aplicação; trocar a chave exige recifrar a coluna.
 - Upload confinado à pasta configurada, com verificação por `path.relative` ao processar e ao remover.
 - Front servido com CSP sem script inline nem eval, Trusted Types obrigatório, HSTS e sem recurso de
   terceiros; a imagem do front roda sem root e o CI confere os cabeçalhos no contêiner.

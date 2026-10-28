@@ -11,6 +11,7 @@ import {
 } from 'typeorm';
 import bcrypt from 'bcryptjs';
 import { config } from '@config/app.config';
+import { encryptedColumn } from '@utils/fieldCipher';
 import { Exclude } from 'class-transformer';
 
 export enum UserRole {
@@ -58,7 +59,12 @@ export class User {
   @Exclude()
   twoFactorEnabled!: boolean;
 
-  @Column({ nullable: true, name: 'two_factor_secret', select: false })
+  @Column({
+    nullable: true,
+    name: 'two_factor_secret',
+    select: false,
+    transformer: encryptedColumn('users.two_factor_secret'),
+  })
   @Exclude()
   twoFactorSecret?: string;
 
