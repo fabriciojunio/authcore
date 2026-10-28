@@ -83,8 +83,47 @@ describe('Auth Routes Integration', () => {
     it('accepts an empty body when the refresh token is in a cookie', async () => {
       const res = await request(app)
         .post('/api/v1/auth/refresh')
+        .set('Origin', 'http://localhost:3000')
         .set('Cookie', 'refreshToken=invalid-token')
         .send({});
+
+      expect(res.status).toBe(401);
+    });
+  });
+
+  describe('CSRF protection on cookie requests', () => {
+    it('rejects a cookie request from an origin that is not allowed', async () => {
+      const res = await request(app)
+        .post('/api/v1/auth/refresh')
+        .set('Origin', 'https://attacker.example')
+        .set('Cookie', 'refreshToken=stolen-context')
+        .send({});
+
+      expect(res.status).toBe(403);
+      expect(res.body.error.code).toBe('CSRF_ORIGIN_REJECTED');
+    });
+
+    it('rejects a cookie request that names no origin at all', async () => {
+      const res = await request(app)
+        .post('/api/v1/auth/refresh')
+        .set('Cookie', 'refreshToken=stolen-context')
+        .send({});
+
+      expect(res.status).toBe(403);
+    });
+
+    it('accepts the allowed origin given only by the Referer header', async () => {
+      const res = await request(app)
+        .post('/api/v1/auth/refresh')
+        .set('Referer', 'http://localhost:3000/dashboard')
+        .set('Cookie', 'refreshToken=invalid-token')
+        .send({});
+
+      expect(res.status).toBe(401);
+    });
+
+    it('leaves bearer-only clients without cookies alone', async () => {
+      const res = await request(app).post('/api/v1/auth/refresh').send({ refreshToken: 'invalid-token' });
 
       expect(res.status).toBe(401);
     });
