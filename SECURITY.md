@@ -9,6 +9,15 @@
 - Limite de tentativas, bloqueio temporário, validação de entrada e comparação de senha com bcrypt.
 - Consultas públicas omitem campos sensíveis; autenticação utiliza consultas específicas que precisam desses campos.
 - Limites de corpo e requisições, configuração de origens permitidas e cabeçalhos de segurança.
+- Requisições que alteram estado e carregam cookie precisam de `Origin` (ou `Referer`) da lista de
+  origens permitidas, além do cookie `SameSite=Strict`. Origem desconhecida não recebe cabeçalho CORS.
+- O sanitizador global descarta as chaves `__proto__`, `constructor` e `prototype`.
+- Nome de usuário entra escapado no HTML dos e-mails; os logs de envio guardam o endereço mascarado.
+- Upload confinado à pasta configurada, com verificação por `path.relative` ao processar e ao remover.
+- Front servido com CSP sem script inline nem eval, Trusted Types obrigatório, HSTS e sem recurso de
+  terceiros; a imagem do front roda sem root e o CI confere os cabeçalhos no contêiner.
+- Dependências auditadas por `npm audit` e OSV-Scanner, código por CodeQL (`security-extended`) e
+  histórico por gitleaks a cada push; actions do CI fixadas por SHA.
 
 Os tempos de expiração e limites dependem da configuração. Confirmar proxy, HTTPS,
 origens permitidas e armazenamento de segredos na implantação. O cookie Strict exige
@@ -34,6 +43,17 @@ de desenho e proteção contra CSRF apropriados antes de mudar essa configuraç�
   ausência de vazamentos; revisar conteúdo, acesso e retenção dos destinos de log.
 - Criptografia, isolamento, recuperação e controles descritos nos arquivos de
   infraestrutura precisam de validação no ambiente implantado.
+
+## Riscos aceitos
+
+Cada aceite tem motivo, mitigação, responsável e data de revisão. Os do CodeQL ficam em
+[`.github/codeql-accepted.json`](.github/codeql-accepted.json): o CI barra qualquer achado fora
+dessa lista e volta a barrar um aceite quando a data de revisão passa.
+
+| Achado | Motivo | Revisão |
+|---|---|---|
+| CodeQL `js/missing-token-validation` em `backend/src/app.ts` | A regra só reconhece bibliotecas como `csurf`; a proteção aqui é a verificação de `Origin`/`Referer`, prevista no OWASP CSRF Prevention Cheat Sheet, com testes próprios. | 28/04/2027 |
+| `deepmerge` (severidade baixa) | Vem do Jest e só existe nos testes; a correção sugerida rebaixaria o Jest para uma versão de 2020. | na próxima versão principal do Jest |
 
 ## Validação técnica
 

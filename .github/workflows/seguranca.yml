@@ -52,9 +52,17 @@ jobs:
       - uses: github/codeql-action/analyze@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
         with:
           output: sarif-results
-      - name: Falha se o CodeQL encontrou algum problema
+      # Falha em qualquer achado que não esteja no registro de aceites, e também em aceite
+      # vencido: um risco aceito volta a barrar quando chega a data de revisão.
+      - name: Falha se o CodeQL encontrou algum problema não aceito
         run: |
-          found=$(jq '[.runs[].results[]] | length' sarif-results/*.sarif | awk '{s+=$1} END {print s+0}')
-          jq -r '.runs[].results[] | "\(.ruleId): \(.locations[0].physicalLocation.artifactLocation.uri):\(.locations[0].physicalLocation.region.startLine)"' sarif-results/*.sarif
-          echo "CodeQL: $found resultado(s)"
-          test "$found" -eq 0
+          # Qualquer erro aqui (jq ausente, SARIF inválido) reprova: a barreira nunca passa por falha.
+          set -euo pipefail
+          today=$(date -u +%F)
+          expired=$(jq -r --arg today "$today" '.[] | select(.review < $today) | "\(.rule) em \(.path) venceu em \(.review)"' .github/codeql-accepted.json)
+          if [ -n "$expired" ]; then echo "Aceite vencido, reavaliar:"; echo "$expired"; exit 1; fi
+          jq -r '.runs[].results[] | "\(.ruleId)|\(.locations[0].physicalLocation.artifactLocation.uri)|\(.locations[0].physicalLocation.region.startLine)"' sarif-results/*.sarif > findings.txt
+          jq -r '.[] | "\(.rule)|\(.path)"' .github/codeql-accepted.json > accepted.txt
+          open=$(while IFS='|' read -r rule path line; do grep -qxF "$rule|$path" accepted.txt || echo "$rule: $path:$line"; done < findings.txt)
+          echo "CodeQL: $(wc -l < findings.txt) resultado(s), $(echo -n "$open" | grep -c . || true) sem aceite"
+          if [ -n "$open" ]; then echo "$open"; exit 1; fi
