@@ -3,7 +3,10 @@
   "version": "1.0.0",
   "private": true,
   "description": "Full-stack auth platform with JWT HS256, 2FA TOTP, RBAC and audit log",
-  "workspaces": ["backend", "frontend"],
+  "workspaces": [
+    "backend",
+    "frontend"
+  ],
   "scripts": {
     "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
     "dev:backend": "npm run dev --workspace=backend",
@@ -18,5 +21,10 @@
   },
   "devDependencies": {
     "concurrently": "^8.2.2"
+  },
+  "allowScripts": {
+    "esbuild@0.25.12": true,
+    "esbuild@0.28.1": true,
+    "@scarf/scarf": false
   }
 }
