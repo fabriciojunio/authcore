@@ -57,15 +57,15 @@ export class EmailService {
         text: options.text ?? this.stripHtml(options.html),
       });
 
-      logger.info('Email sent', { to: options.to, subject: options.subject });
+      logger.info('Email sent', { to: maskEmail(options.to), subject: options.subject });
     } catch (error) {
-      logger.error('Failed to send email', { to: options.to, error });
+      logger.error('Failed to send email', { to: maskEmail(options.to), error });
       // Don't throw — email failures shouldn't crash the API
     }
   }
 
   async sendVerificationEmail(dto: SendVerificationEmailDto): Promise<void> {
-    const verifyUrl = `${process.env['FRONTEND_URL'] ?? 'http://localhost:3000'}/verify-email?token=${dto.token}`;
+    const verifyUrl = `${process.env['FRONTEND_URL'] ?? 'http://localhost:3000'}/verify-email?token=${encodeURIComponent(dto.token)}`;
 
     await this.send({
       to: dto.to,
@@ -73,7 +73,7 @@ export class EmailService {
       html: this.baseTemplate({
         title: 'Verify your email address',
         body: `
-          <p>Hi ${dto.name},</p>
+          <p>Hi ${escapeHtml(dto.name)},</p>
           <p>Thanks for registering! Please verify your email address by clicking the button below.</p>
           <p>This link expires in <strong>24 hours</strong>.</p>
         `,
@@ -85,7 +85,7 @@ export class EmailService {
   }
 
   async sendPasswordResetEmail(dto: SendPasswordResetEmailDto): Promise<void> {
-    const resetUrl = `${process.env['FRONTEND_URL'] ?? 'http://localhost:3000'}/reset-password?token=${dto.token}`;
+    const resetUrl = `${process.env['FRONTEND_URL'] ?? 'http://localhost:3000'}/reset-password?token=${encodeURIComponent(dto.token)}`;
 
     await this.send({
       to: dto.to,
@@ -93,7 +93,7 @@ export class EmailService {
       html: this.baseTemplate({
         title: 'Reset your password',
         body: `
-          <p>Hi ${dto.name},</p>
+          <p>Hi ${escapeHtml(dto.name)},</p>
           <p>We received a request to reset your password. Click the button below to create a new one.</p>
           <p>This link expires in <strong>1 hour</strong>.</p>
         `,
@@ -134,7 +134,7 @@ export class EmailService {
     <head>
       <meta charset="UTF-8" />
       <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-      <title>${opts.title}</title>
+      <title>${escapeHtml(opts.title)}</title>
     </head>
     <body style="margin:0;padding:0;background:#f9fafb;font-family:Inter,-apple-system,sans-serif;">
       <table width="100%" cellpadding="0" cellspacing="0">
@@ -150,7 +150,7 @@ export class EmailService {
               <!-- Body -->
               <tr>
                 <td style="padding:40px;color:#374151;font-size:15px;line-height:1.6;">
-                  <h1 style="margin:0 0 20px;font-size:22px;font-weight:700;color:#111827;">${opts.title}</h1>
+                  <h1 style="margin:0 0 20px;font-size:22px;font-weight:700;color:#111827;">${escapeHtml(opts.title)}</h1>
                   ${opts.body}
                   <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:32px;">
                     <tr>
@@ -183,7 +183,15 @@ export class EmailService {
   }
 
   private stripHtml(html: string): string {
-    return html.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
+    // Tags are removed until none is left, then any stray angle bracket, so nested input like
+    // "<scr<script>ipt>" cannot leave a tag behind in the plain-text part.
+    let text = html;
+    let previous: string;
+    do {
+      previous = text;
+      text = text.replace(/<[^<>]*>/g, '');
+    } while (text !== previous);
+    return text.replace(/[<>]/g, '').replace(/\s+/g, ' ').trim();
   }
 
   async verifyConnection(): Promise<void> {
@@ -198,3 +206,20 @@ export class EmailService {
 }
 
 export const emailService = new EmailService();
+
+/** Text from users (a name) goes into HTML escaped; xss() alone still lets <a href> through. */
+export function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+/** "f***@example.com": enough to trace a delivery problem, not enough to identify the person. */
+export function maskEmail(address: string): string {
+  const at = address.lastIndexOf('@');
+  if (at < 1) return '***';
+  return `${address[0]}***${address.slice(at)}`;
+}
