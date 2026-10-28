@@ -1,5 +1,7 @@
 # Segurança
 
+*[Read this in English](SECURITY.en.md)*
+
 ## Controles implementados
 
 - Login validado no servidor, com papéis de acesso e verificação do estado da conta.
@@ -75,6 +77,7 @@ com o que está coberto, a prova de cada item e o que falta.
 
 ## Relato de vulnerabilidade
 
-Enviar detalhes para **fabricioad444@gmail.com**. Evitar divulgar dados pessoais,
+Use o aviso privado do GitHub (aba **Security**, **Report a vulnerability**) ou envie detalhes
+para **fabricioad444@gmail.com**. Evitar divulgar dados pessoais,
 credenciais ou exploração reproduzível em uma issue pública. A resposta depende da
 disponibilidade do mantenedor; não há prazo de correção contratualmente garantido.

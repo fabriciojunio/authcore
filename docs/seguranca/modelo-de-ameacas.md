@@ -1,5 +1,7 @@
 # Modelo de ameaças
 
+*[Read this in English](modelo-de-ameacas.en.md)*
+
 Revisado em 28/10/2026, sobre o branch `homologação`. Método STRIDE aplicado aos fluxos que existem
 hoje no código. O que ainda não existe (cadastro autônomo com e-mail, adesão ao 2FA pela interface)
 fica fora e está listado em [SECURITY.md](../../SECURITY.md).
