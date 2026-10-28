@@ -3,7 +3,7 @@ import { Request, Response } from 'express';
 import { productService } from '@services/product.service';
 import type { CreateProductDto, UpdateProductDto } from '@services/product.service';
 import { HttpStatus, ValidationError } from '@errors/AppError';
-import { upload, processImage, getPublicFilePath } from '@services/upload.service';
+import { upload, processImage, getPublicFilePath, deleteFile } from '@services/upload.service';
 import { ProductStatus } from '@models/product.entity';
 
 export class ProductController {
@@ -69,12 +69,19 @@ export class ProductController {
 
       const imageUrl = getPublicFilePath(path.basename(processedPath));
 
-      const product = await productService.updateProductImage(
-        req.params['id'],
-        imageUrl,
-        req.user!.id,
-        req.user!.role
-      );
+      let product;
+      try {
+        product = await productService.updateProductImage(
+          req.params['id'],
+          imageUrl,
+          req.user!.id,
+          req.user!.role
+        );
+      } catch (error) {
+        // Produto inexistente ou de outra pessoa: a imagem já processada não pode ficar órfã no disco.
+        await deleteFile(processedPath);
+        throw error;
+      }
 
       res.status(HttpStatus.OK).json({ success: true, data: { product } });
     },

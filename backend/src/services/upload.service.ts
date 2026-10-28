@@ -21,6 +21,10 @@ export function resolveInsideUploads(filePath: string): string {
   return resolved;
 }
 
+// Cada upload é lido uma vez só. O cache do libvips não ajuda e, no Windows, segura o arquivo
+// aberto e impede apagar o original.
+sharp.cache(false);
+
 // Disk storage with secure naming
 const storage = multer.diskStorage({
   destination: async (_req, _file, cb) => {
@@ -40,7 +44,8 @@ const storage = multer.diskStorage({
   },
 });
 
-// File type validation (check MIME + magic bytes)
+// O MIME vem do cliente e só barra o óbvio. A prova de que é imagem é o sharp decodificar o
+// arquivo em processImage; o que ele não lê é apagado e volta como 400.
 const fileFilter = (
   _req: Express.Request,
   file: Express.Multer.File,
@@ -78,29 +83,30 @@ export async function processImage(
     format?: 'jpeg' | 'png' | 'webp';
   } = {}
 ): Promise<string> {
+  const { width = 800, height, quality = 80, format = 'webp' } = options;
+
+  const inputPath = resolveInsideUploads(filePath);
+  // O nome de saída nunca é o de entrada: o sharp não lê e grava o mesmo arquivo, e um .webp enviado
+  // já falhava por isso.
+  const outputPath = resolveInsideUploads(
+    path.join(path.dirname(inputPath), `${path.basename(inputPath, path.extname(inputPath))}-${width}w.${format}`),
+  );
+
   try {
-    const { width = 800, height, quality = 80, format = 'webp' } = options;
-
-    const inputPath = resolveInsideUploads(filePath);
-    const outputPath = resolveInsideUploads(
-      path.join(path.dirname(inputPath), `${path.basename(inputPath, path.extname(inputPath))}.${format}`),
-    );
-
     await sharp(inputPath)
       .resize(width, height, { fit: 'inside', withoutEnlargement: true })
       .toFormat(format, { quality })
       .toFile(outputPath);
 
-    // Remove original if format changed
-    if (outputPath !== inputPath) {
-      await fs.unlink(inputPath).catch(() => {});
-    }
+    await deleteFile(inputPath);
 
     logger.info('Image processed', { input: path.basename(inputPath), output: path.basename(outputPath) });
     return outputPath;
   } catch (error) {
-    logger.error('Image processing failed', { filePath, error });
-    throw new AppError('Image processing failed', HttpStatus.INTERNAL_SERVER_ERROR, 'IMAGE_PROCESSING_ERROR');
+    logger.warn('Image processing failed', { file: path.basename(inputPath), error });
+    await deleteFile(inputPath);
+    await deleteFile(outputPath);
+    throw new AppError('File is not a valid image', HttpStatus.BAD_REQUEST, 'INVALID_IMAGE');
   }
 }
 

@@ -1,11 +1,14 @@
+import { promises as fs } from 'fs';
+import { randomUUID } from 'crypto';
 import path from 'path';
+import sharp from 'sharp';
 import type { Request, Response } from 'express';
 
 process.env['UPLOAD_PATH'] = process.env['UPLOAD_PATH'] ?? './uploads';
 
 import { sanitizeBody } from '../../src/middlewares/validation.middleware';
 import { escapeHtml, maskEmail } from '../../src/services/email.service';
-import { resolveInsideUploads } from '../../src/services/upload.service';
+import { processImage, resolveInsideUploads } from '../../src/services/upload.service';
 import { config } from '../../src/config/app.config';
 
 function sanitize(body: unknown): unknown {
@@ -55,5 +58,47 @@ describe('upload paths', () => {
     for (const bad of [path.join(base, '..', 'etc', 'passwd'), '/etc/passwd', `${base}-evil${path.sep}x.png`, base]) {
       expect(() => resolveInsideUploads(bad)).toThrow('Invalid file path');
     }
+  });
+});
+
+describe('image processing', () => {
+  const base = path.resolve(config.upload.path);
+  const write = async (ext: string, data: Buffer) => {
+    const file = path.join(base, `${randomUUID()}${ext}`);
+    await fs.writeFile(file, data);
+    return file;
+  };
+  const exists = (file: string) => fs.access(file).then(() => true, () => false);
+
+  beforeAll(() => fs.mkdir(base, { recursive: true }));
+
+  it('turns a real image into a resized webp and drops the original', async () => {
+    const png = await sharp({ create: { width: 1200, height: 600, channels: 3, background: '#336699' } }).png().toBuffer();
+    const input = await write('.png', png);
+
+    const output = await processImage(input, { width: 800 });
+
+    expect(await exists(input)).toBe(false);
+    expect((await sharp(await fs.readFile(output)).metadata()).width).toBe(800);
+    await fs.unlink(output);
+  });
+
+  it('accepts a webp upload, which used to collide with its own output name', async () => {
+    const webp = await sharp({ create: { width: 10, height: 10, channels: 3, background: '#000' } }).webp().toBuffer();
+    const input = await write('.webp', webp);
+
+    const output = await processImage(input);
+
+    expect(output).not.toBe(input);
+    expect(await exists(input)).toBe(false);
+    expect(await exists(output)).toBe(true);
+    await fs.unlink(output);
+  });
+
+  it('refuses a file that only claims to be an image and leaves nothing behind', async () => {
+    const input = await write('.png', Buffer.from('<html><script>alert(1)</script></html>'));
+
+    await expect(processImage(input)).rejects.toMatchObject({ statusCode: 400, code: 'INVALID_IMAGE' });
+    expect(await exists(input)).toBe(false);
   });
 });
