@@ -1,4 +1,7 @@
+import { promises as fs } from 'fs';
+import path from 'path';
 import request from 'supertest';
+import sharp from 'sharp';
 import type { Application } from 'express';
 
 jest.mock('../../src/config/database', () => ({
@@ -115,6 +118,23 @@ describe('Ownership between users (IDOR/BOLA)', () => {
 
     expect(res.status).toBe(200);
     expect(productUpdate).toHaveBeenCalledWith(ALICE_PRODUCT, { name: 'Caneca azul' });
+  });
+
+  it("refuses an image upload to another user's product and keeps nothing on disk", async () => {
+    const { config } = await import('../../src/config/app.config');
+    const folder = path.resolve(config.upload.path);
+    await fs.mkdir(folder, { recursive: true });
+    const before = await fs.readdir(folder);
+    const png = await sharp({ create: { width: 20, height: 20, channels: 3, background: '#a33' } }).png().toBuffer();
+
+    const res = await request(app)
+      .post(`/api/v1/products/${ALICE_PRODUCT}/image`)
+      .set('Authorization', `Bearer ${tokenFor(BOB)}`)
+      .attach('image', png, { filename: 'foto.png', contentType: 'image/png' });
+
+    expect(res.status).toBe(403);
+    expect(productUpdate).not.toHaveBeenCalled();
+    expect(await fs.readdir(folder)).toEqual(before);
   });
 
   it('keeps a plain user out of the user directory and of other profiles', async () => {
