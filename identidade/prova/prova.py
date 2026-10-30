@@ -112,10 +112,16 @@ def relatorios(token=None):
     return chamar(navegador(), KONG, cabecalhos=cabecalhos)
 
 
-def recusado_pelo_spring(cabecalhos):
-    # O Spring responde 401 com WWW-Authenticate: Bearer error="invalid_token";
-    # o plugin jwt do Kong não manda esse cabeçalho. É assim que se sabe quem barrou.
-    return 'error="invalid_token"' in cabecalhos.get("WWW-Authenticate", "")
+def quem_recusou(cabecalhos, corpo):
+    """O plugin jwt do Kong responde com JSON {"message": ...}; o Spring responde
+    401 sem corpo. O cabeçalho WWW-Authenticate não serve: os dois mandam."""
+    try:
+        mensagem = json.loads(corpo).get("message")
+    except (ValueError, AttributeError):
+        mensagem = None
+    origem = f"kong ({mensagem})" if mensagem else "serviço"
+    print(f"      recusado por: {origem}; WWW-Authenticate: {cabecalhos.get('WWW-Authenticate', '-')}")
+    return "kong" if mensagem else "serviço"
 
 
 def payload(token):
@@ -162,8 +168,8 @@ def main():
     conferir(dados["exp"] - dados["iat"] <= 300, "o token de acesso vale no máximo 5 minutos")
 
     print("\nKong e serviço: quem passa")
-    status, _, _ = relatorios()
-    conferir(status == 401, "sem token, o Kong responde 401")
+    status, cabecalhos, corpo = relatorios()
+    conferir(status == 401 and quem_recusou(cabecalhos, corpo) == "kong", "sem token, o Kong responde 401")
 
     status, _, corpo = relatorios(token_ana)
     conferir(status == 200 and json.loads(corpo)["solicitante"] == dados["sub"],
@@ -172,12 +178,12 @@ def main():
     cabecalho, carga, assinatura = token_ana.split(".")
     adulterado = dict(dados, realm_access={"roles": ["analista", "admin"]}, sub="outra-pessoa")
     forjado = f"{cabecalho}.{b64url(json.dumps(adulterado).encode())}.{assinatura}"
-    status, cabecalhos, _ = relatorios(forjado)
-    conferir(status == 401 and not recusado_pelo_spring(cabecalhos), "token com o conteúdo alterado é barrado pelo Kong")
+    status, cabecalhos, corpo = relatorios(forjado)
+    conferir(status == 401 and quem_recusou(cabecalhos, corpo) == "kong", "token com o conteúdo alterado é barrado pelo Kong")
 
     sem_assinatura = f"{b64url(json.dumps({'alg': 'none', 'typ': 'JWT'}).encode())}.{carga}."
-    status, cabecalhos, _ = relatorios(sem_assinatura)
-    conferir(status == 401 and not recusado_pelo_spring(cabecalhos), "token com alg none é barrado pelo Kong")
+    status, cabecalhos, corpo = relatorios(sem_assinatura)
+    conferir(status == 401 and quem_recusou(cabecalhos, corpo) == "kong", "token com alg none é barrado pelo Kong")
 
     status, _, _ = relatorios(login("bruno", bruno))
     conferir(status == 403, "bruno, sem o papel de analista, recebe 403 do serviço")
@@ -186,8 +192,8 @@ def main():
         "grant_type": "client_credentials", "client_id": "outro-servico",
         "client_secret": os.environ["AUTHCORE_SEGREDO_OUTRO_SERVICO"]})
     token_outro = json.loads(corpo)["access_token"]
-    status, cabecalhos, _ = relatorios(token_outro)
-    conferir(status == 401 and recusado_pelo_spring(cabecalhos),
+    status, cabecalhos, corpo = relatorios(token_outro)
+    conferir(status == 401 and quem_recusou(cabecalhos, corpo) == "serviço",
              "token válido do mesmo Keycloak, mas de outra audiência, passa pelo Kong e é recusado pelo serviço")
 
     print("\nKong: limite e exposição")
