@@ -29,6 +29,7 @@ import java.util.List;
 import java.util.Map;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -90,6 +91,17 @@ class ValidacaoDoTokenTest {
         var outraAudiencia = claims().audience("outro-servico").build();
         mvc.perform(get("/api/relatorios").header("Authorization", "Bearer " + token(outraAudiencia, CHAVE)))
                 .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void recusaNaoContaOMotivoNemOEnderecoInterno() throws Exception {
+        var outraAudiencia = claims().audience("outro-servico").build();
+        mvc.perform(get("/api/relatorios").header("Authorization", "Bearer " + token(outraAudiencia, CHAVE)))
+                .andExpect(status().isUnauthorized())
+                .andExpect(header().string("WWW-Authenticate", "Bearer error=\"invalid_token\""));
+        mvc.perform(get("/api/relatorios"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(header().string("WWW-Authenticate", "Bearer error=\"invalid_token\""));
     }
 
     @Test
