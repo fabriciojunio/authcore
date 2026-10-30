@@ -43,6 +43,20 @@ export class CacheService {
     }
   }
 
+  // Lê e apaga numa única operação: um desafio de uso único não pode ser lido duas
+  // vezes por requisições concorrentes. Sem Redis devolve null, e quem chama recusa.
+  async consume<T>(key: string): Promise<T | null> {
+    try {
+      const client = getRedisClient();
+      const value = await client.getDel(this.buildKey(key));
+      if (!value) return null;
+      return JSON.parse(value) as T;
+    } catch (error) {
+      logger.warn('Cache consume error', { key, error });
+      return null;
+    }
+  }
+
   async deletePattern(pattern: string): Promise<void> {
     try {
       const client = getRedisClient();

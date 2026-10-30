@@ -54,7 +54,7 @@ function createApiClient(): AxiosInstance {
     (response) => response,
     async (error: AxiosError) => {
       const original = error.config as SessionRequest | undefined
-      const credentialRoute = /\/auth\/(login|register|refresh)(?:[/?]|$)/.test(original?.url ?? '')
+      const credentialRoute = /\/auth\/(login|register|refresh|passkeys\/authentication)(?:[/?]|$)/.test(original?.url ?? '')
       if (error.response?.status === 401 && original && !original._retry && !credentialRoute
           && original._sessionEpoch === sessionEpoch) {
         original._retry = true

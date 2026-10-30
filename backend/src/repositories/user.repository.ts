@@ -75,6 +75,19 @@ export class UserRepository extends BaseRepository<User> {
       .getOne();
   }
 
+  // Login por passkey: carrega os mesmos campos do login por senha, porque o
+  // completeLogin confere senha e versão de sessão para não regravar sobre uma
+  // troca de senha concorrente.
+  async findByIdWithPassword(id: string): Promise<User | null> {
+    return this.repository
+      .createQueryBuilder('user')
+      .addSelect('user.password')
+      .addSelect('user.failedLoginAttempts')
+      .addSelect('user.lockedUntil')
+      .where('user.id = :id', { id })
+      .getOne();
+  }
+
   async findByResetToken(token: string): Promise<User | null> {
     return this.repository
       .createQueryBuilder('user')

@@ -5,7 +5,8 @@ import { z } from 'zod'
 import { Link } from 'react-router-dom'
 import { useAuthStore } from '../../store/authStore'
 import styles from '../AuthPage.module.css'
-import { Play } from 'lucide-react'
+import { Fingerprint, Play } from 'lucide-react'
+import { suportaPasskey } from '../../services/passkeys'
 
 const schema = z.object({
   email:    z.string().email('E-mail inválido'),
@@ -20,7 +21,7 @@ const stats = [
 ]
 
 export default function LoginPage() {
-  const { login, loginAsDemo, isLoading, error, clearError } = useAuthStore()
+  const { login, loginWithPasskey, loginAsDemo, isLoading, error, clearError } = useAuthStore()
   const emailId = useId()
   const passId  = useId()
 
@@ -32,6 +33,15 @@ export default function LoginPage() {
     clearError()
     try {
       await login(data.email, data.password)
+    } catch {
+      // A mensagem de erro já está disponível no estado do formulário.
+    }
+  }
+
+  const onPasskey = async () => {
+    clearError()
+    try {
+      await loginWithPasskey()
     } catch {
       // A mensagem de erro já está disponível no estado do formulário.
     }
@@ -128,6 +138,13 @@ export default function LoginPage() {
             <span className={styles.divTxt}>ou</span>
             <div className={styles.divLine} />
           </div>
+
+          {suportaPasskey() && (
+            <button className={`${styles.btnDemo} ${styles.btnPasskey}`} onClick={onPasskey} type="button" disabled={isLoading}>
+              <Fingerprint size={16} aria-hidden="true" />
+              Entrar com passkey
+            </button>
+          )}
 
           <button className={styles.btnDemo} onClick={loginAsDemo} type="button">
             <Play size={16} aria-hidden="true" />

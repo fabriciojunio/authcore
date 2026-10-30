@@ -8,6 +8,12 @@ import {
   loginSchema,
   refreshTokenSchema,
 } from '@validators/auth.validator';
+import { passkeyController } from '@controllers/passkey.controller';
+import {
+  passkeyAuthenticationSchema,
+  passkeyIdSchema,
+  passkeyRegistrationSchema,
+} from '@validators/passkey.validator';
 
 const router = Router();
 
@@ -97,6 +103,91 @@ router.get(
   '/me',
   authenticate,
   authController.me.bind(authController)
+);
+
+/**
+ * @swagger
+ * /auth/passkeys/registration/options:
+ *   post:
+ *     tags: [Passkeys]
+ *     summary: Start registering a passkey for the signed-in user
+ *     security: [{ bearerAuth: [] }]
+ */
+router.post(
+  '/passkeys/registration/options',
+  authenticate,
+  passkeyController.registrationOptions.bind(passkeyController)
+);
+
+/**
+ * @swagger
+ * /auth/passkeys/registration/verify:
+ *   post:
+ *     tags: [Passkeys]
+ *     summary: Save the passkey created by the authenticator
+ *     security: [{ bearerAuth: [] }]
+ */
+router.post(
+  '/passkeys/registration/verify',
+  authenticate,
+  validate(passkeyRegistrationSchema),
+  passkeyController.verifyRegistration.bind(passkeyController)
+);
+
+/**
+ * @swagger
+ * /auth/passkeys/authentication/options:
+ *   post:
+ *     tags: [Passkeys]
+ *     summary: Start a passkey sign-in
+ */
+router.post(
+  '/passkeys/authentication/options',
+  authRateLimiter(),
+  passkeyController.authenticationOptions.bind(passkeyController)
+);
+
+/**
+ * @swagger
+ * /auth/passkeys/authentication/verify:
+ *   post:
+ *     tags: [Passkeys]
+ *     summary: Sign in with a passkey
+ */
+router.post(
+  '/passkeys/authentication/verify',
+  authRateLimiter(),
+  validate(passkeyAuthenticationSchema),
+  passkeyController.verifyAuthentication.bind(passkeyController)
+);
+
+/**
+ * @swagger
+ * /auth/passkeys:
+ *   get:
+ *     tags: [Passkeys]
+ *     summary: List the signed-in user's passkeys
+ *     security: [{ bearerAuth: [] }]
+ */
+router.get(
+  '/passkeys',
+  authenticate,
+  passkeyController.list.bind(passkeyController)
+);
+
+/**
+ * @swagger
+ * /auth/passkeys/{id}:
+ *   delete:
+ *     tags: [Passkeys]
+ *     summary: Remove one of the signed-in user's passkeys
+ *     security: [{ bearerAuth: [] }]
+ */
+router.delete(
+  '/passkeys/:id',
+  authenticate,
+  validate(passkeyIdSchema, 'params'),
+  passkeyController.remove.bind(passkeyController)
 );
 
 export default router;

@@ -20,6 +20,7 @@ describe('CacheService (degradação graciosa)', () => {
     exists: jest.fn(),
     incr: jest.fn(),
     expire: jest.fn(),
+    getDel: jest.fn(),
   };
 
   const cache = new CacheService('teste');
@@ -43,6 +44,30 @@ describe('CacheService (degradação graciosa)', () => {
       await new CacheService('outro').get('perfil');
 
       expect(cliente.get).toHaveBeenCalledWith('outro:perfil');
+    });
+  });
+
+  // Desafio de passkey: lido e apagado no mesmo comando, para que duas
+  // requisições com a mesma resposta não consigam usar o desafio as duas.
+  describe('consumo único', () => {
+    it('should read and delete the key in a single GETDEL', async () => {
+      cliente.getDel.mockResolvedValue(JSON.stringify({ challenge: 'abc' }));
+
+      await expect(cache.consume('webauthn:login:1')).resolves.toEqual({ challenge: 'abc' });
+      expect(cliente.getDel).toHaveBeenCalledWith('teste:webauthn:login:1');
+      expect(cliente.get).not.toHaveBeenCalled();
+    });
+
+    it('should return null when the key was already consumed', async () => {
+      cliente.getDel.mockResolvedValue(null);
+
+      await expect(cache.consume('webauthn:login:1')).resolves.toBeNull();
+    });
+
+    it('should return null instead of failing when Redis is down', async () => {
+      cliente.getDel.mockRejectedValue(new Error('ECONNREFUSED'));
+
+      await expect(cache.consume('webauthn:login:1')).resolves.toBeNull();
     });
   });
 

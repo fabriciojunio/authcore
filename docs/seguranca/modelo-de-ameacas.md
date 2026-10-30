@@ -31,6 +31,10 @@ dados pessoais (nome, e-mail, telefone), produtos e imagens.
 | Token forjado | HS256 com algoritmo fixo na verificação, `iss`, `aud` e tipo do token conferidos; segredo com 64+ caracteres validado na subida | `token.service.ts`, `token.service.test.ts` |
 | Roubo do segredo TOTP pelo banco | segredo cifrado com AES-256-GCM; o banco sozinho não gera código | `fieldCipher.ts`, teste com Postgres em `session.postgres.test.ts` |
 | Enumeração de contas | mesma mensagem no cadastro com e-mail novo ou repetido; comparação fictícia no login | `auth.service.test.ts` |
+| Phishing da passkey | a assinatura cobre a origem e o hash do RP; resposta colhida em outro domínio é recusada | `passkey.service.test.ts` |
+| Replay da asserção | desafio de uso único lido e apagado com `GETDEL`, válido por 5 min | `passkey.service.test.ts`, `passkey.postgres.test.ts` |
+| Autenticador clonado | contador que não avança é recusado; o `UPDATE` só passa se o contador lido ainda for o do banco | `passkey.service.test.ts` |
+| Passkey de um usuário apresentada como de outro | o `userHandle` devolvido pelo aparelho tem de ser o dono da credencial | `passkey.service.test.ts` |
 
 O risco que sobra: a política de senha ainda é 8 caracteres com regra de composição e não consulta
 listas de senhas vazadas. Está no checklist ASVS como pendente.

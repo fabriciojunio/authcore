@@ -13,7 +13,7 @@ means one part of the chapter is covered and another is not, and the missing par
 | V3 Web frontend security | Partial | CSP `default-src 'none'`, Trusted Types, HSTS, no third parties, headers checked in the container by CI. Missing: the access token lives in `sessionStorage`. |
 | V4 API and web services | Meets | Explicit CORS list, CSRF via `Origin`/`Referer` on cookie routes, HPP, rate limiting. |
 | V5 File handling | Partial | Size and count limited, random name, confined path, `sharp` decodes the image and whatever it rejects is deleted. Missing: antivirus and a separate domain if images are ever served. |
-| V6 Authentication | Partial | bcrypt 12, lockout after 5 failures, per-IP limit, TOTP at login. Missing: the ASVS 5 password policy (longer minimum, no composition rules), a breached-password check and 2FA enrolment in the interface. |
+| V6 Authentication | Partial | bcrypt 12, lockout after 5 failures, per-IP limit, TOTP at login, passkeys with required user verification. Missing: the ASVS 5 password policy (longer minimum, no composition rules), a breached-password check and 2FA enrolment in the interface. |
 | V7 Session management | Meets | 15-minute access, 7-day refresh with rotation and reuse detection, `sessionVersion` revokes everything on logout and password change (Postgres tests). |
 | V8 Authorization | Meets | Deny by default, role read from the database on each request, product ownership in the service; IDOR tested over HTTP in `ownership.routes.test.ts`. |
 | V9 Self-contained tokens | Meets | Fixed algorithm, `iss`, `aud`, `exp` and type checked; refresh stored as SHA-256. |
