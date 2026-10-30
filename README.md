@@ -68,6 +68,8 @@ authcore/
 - `sessionVersion` conferida no banco a cada requisição: logout e troca de senha revogam tudo
 - Bloqueio após 5 erros e comparação fictícia para conta inexistente
 - 2FA por TOTP no login, com o segredo cifrado no banco (AES-256-GCM, chave por HKDF)
+- Passkeys (WebAuthn): login sem senha com biometria ou PIN do aparelho, desafio de uso único no
+  Redis, origem e RP conferidos, contador que só anda para a frente e remoção restrita ao dono
 
 ### Autorização
 - Negação por padrão; o papel vem do banco a cada requisição, não do token
@@ -131,6 +133,13 @@ POST   /api/v1/auth/refresh           renova o token de acesso
 POST   /api/v1/auth/logout            sai e revoga as sessões
 GET    /api/v1/auth/me                usuário atual
 
+POST   /api/v1/auth/passkeys/registration/options   inicia o cadastro de passkey (logado)
+POST   /api/v1/auth/passkeys/registration/verify    salva a passkey (logado)
+POST   /api/v1/auth/passkeys/authentication/options inicia o login com passkey
+POST   /api/v1/auth/passkeys/authentication/verify  entra com passkey
+GET    /api/v1/auth/passkeys                        lista as próprias passkeys
+DELETE /api/v1/auth/passkeys/:id                    remove uma passkey própria
+
 GET    /api/v1/users/profile          próprio perfil
 PATCH  /api/v1/users/profile          altera o perfil
 PATCH  /api/v1/users/change-password  troca a senha
@@ -151,7 +160,7 @@ npm run test:coverage      # com cobertura
 cd backend && npm run test:watch
 ```
 
-264 testes no back-end. Oito deles sobem PostgreSQL de verdade e só rodam com
+306 testes no back-end. Doze deles sobem PostgreSQL e Redis de verdade e só rodam com
 `AUTHCORE_POSTGRES_TEST=1`; no CI rodam sempre. A cobertura mínima exigida é 80% de linhas e 70% de
 ramos.
 
@@ -163,6 +172,8 @@ Todas estão em `backend/.env.example`. Obrigatórias em produção:
 - `JWT_REFRESH_SECRET`: 64 caracteres ou mais, diferente do de acesso
 - `ENCRYPTION_KEY`: 32 caracteres ou mais; cifra o segredo TOTP, então trocá-la exige recifrar a coluna
 - `DB_PASSWORD` e `REDIS_PASSWORD`: senhas fortes
+- `WEBAUTHN_RP_ID` e `WEBAUTHN_ORIGIN`: domínio e origem exatos do front-end. A passkey fica presa
+  ao domínio, então trocar o `WEBAUTHN_RP_ID` invalida todas as passkeys já cadastradas
 
 ```bash
 node -e "console.log(require('crypto').randomBytes(64).toString('hex'))"

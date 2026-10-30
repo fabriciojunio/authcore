@@ -1,4 +1,5 @@
 import styles from './SettingsPage.module.css'
+import PasskeysSection from './PasskeysSection'
 
 const sections = [
   {
@@ -40,6 +41,7 @@ export default function SettingsPage() {
       </div>
 
       <div className={styles.sections}>
+        <PasskeysSection />
         {sections.map(sec => (
           <div key={sec.title} className={styles.section}>
             <div className={styles.secHead}>

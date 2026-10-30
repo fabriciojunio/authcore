@@ -53,6 +53,19 @@ const configSchema = z.object({
     allowedOrigins: z.string().transform((val) => val.split(',')),
   }),
 
+  // Passkeys (WebAuthn). O RP ID é o domínio ao qual a credencial fica presa: uma
+  // passkey criada aqui não serve em outro site, o que derruba o phishing.
+  webauthn: z.object({
+    rpId: z.string().min(1).optional(),
+    rpName: z.string().min(1),
+    origin: z.url(),
+  }).transform((w) => ({ ...w, rpId: w.rpId ?? new URL(w.origin).hostname }))
+    // O navegador só entrega a passkey se a origem for o próprio RP ou um subdomínio dele.
+    .refine((w) => {
+      const host = new URL(w.origin).hostname;
+      return host === w.rpId || host.endsWith(`.${w.rpId}`);
+    }, 'WEBAUTHN_ORIGIN must be on WEBAUTHN_RP_ID or one of its subdomains'),
+
   email: z.object({
     host: z.string(),
     port: z.coerce.number().default(587),
@@ -120,6 +133,11 @@ function loadConfig(): AppConfig {
     },
     cors: {
       allowedOrigins: process.env['ALLOWED_ORIGINS'] ?? 'http://localhost:3000',
+    },
+    webauthn: {
+      rpId: process.env['WEBAUTHN_RP_ID'],
+      rpName: process.env['WEBAUTHN_RP_NAME'] ?? process.env['APP_NAME'],
+      origin: process.env['WEBAUTHN_ORIGIN'] ?? (process.env['ALLOWED_ORIGINS'] ?? 'http://localhost:3000').split(',')[0],
     },
     email: {
       host: process.env['SMTP_HOST'],

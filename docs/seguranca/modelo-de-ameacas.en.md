@@ -31,6 +31,10 @@ data (name, email, phone), products and images.
 | Forged token | HS256 with a fixed algorithm on verification, `iss`, `aud` and token type checked; 64+ character secret validated at startup | `token.service.ts`, `token.service.test.ts` |
 | Stealing the TOTP secret from the database | secret encrypted with AES-256-GCM; the database alone cannot generate a code | `fieldCipher.ts`, Postgres test in `session.postgres.test.ts` |
 | Account enumeration | same message at sign-up for new or existing email; dummy comparison at login | `auth.service.test.ts` |
+| Passkey phishing | the signature covers the origin and the RP hash; a response collected on another domain is refused | `passkey.service.test.ts` |
+| Assertion replay | single-use challenge read and deleted with `GETDEL`, valid for 5 min | `passkey.service.test.ts`, `passkey.postgres.test.ts` |
+| Cloned authenticator | a counter that does not move forward is refused; the `UPDATE` only succeeds if the counter read is still the one in the database | `passkey.service.test.ts` |
+| One user's passkey presented as another's | the `userHandle` returned by the device must be the credential's owner | `passkey.service.test.ts` |
 
 Remaining risk: the password policy is still 8 characters with composition rules and does not check
 breached-password lists. It is listed as pending in the ASVS checklist.

@@ -13,7 +13,13 @@ vi.mock('../services/api', () => ({
   clearTokens: vi.fn(),
 }))
 
+vi.mock('../services/passkeys', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../services/passkeys')>()),
+  entrarComPasskey: vi.fn(),
+}))
+
 import { api, clearTokens, setTokens } from '../services/api'
+import { entrarComPasskey } from '../services/passkeys'
 import { useAuthStore } from './authStore'
 import { useNotificationStore, type AppNotification } from './notificationStore'
 
@@ -100,6 +106,35 @@ describe('authStore', () => {
     ).rejects.toBeTruthy()
 
     expect(useAuthStore.getState().error).toBe('Credenciais inválidas')
+  })
+
+  it('a passkey abre a mesma sessão do login com senha', async () => {
+    vi.mocked(entrarComPasskey).mockResolvedValueOnce({
+      data: {
+        data: {
+          user: { id: '1', name: 'Ana', email: 'ana@exemplo.com', role: 'user', status: 'active' },
+          accessToken: 'acesso-passkey', expiresIn: 900,
+        },
+      },
+    })
+
+    await useAuthStore.getState().loginWithPasskey()
+
+    const s = useAuthStore.getState()
+    expect(s.isAuthenticated).toBe(true)
+    expect(s.isDemo).toBe(false)
+    expect(setTokens).toHaveBeenCalledWith('acesso-passkey')
+  })
+
+  it('cancelar a passkey no aparelho mostra aviso simples e não abre sessão', async () => {
+    vi.mocked(entrarComPasskey).mockRejectedValueOnce(Object.assign(new Error('x'), { name: 'NotAllowedError' }))
+
+    await expect(useAuthStore.getState().loginWithPasskey()).rejects.toBeTruthy()
+
+    const s = useAuthStore.getState()
+    expect(s.error).toBe('Operação cancelada no aparelho')
+    expect(s.isAuthenticated).toBe(false)
+    expect(s.isLoading).toBe(false)
   })
 
   it('resposta 200 fora do contrato não vira erro de JavaScript na tela', async () => {

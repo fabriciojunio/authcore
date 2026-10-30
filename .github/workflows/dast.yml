@@ -1,0 +1,39 @@
+name: DAST
+
+# Varredura dinâmica com o OWASP ZAP contra o site no ar. É o modo baseline:
+# o ZAP navega pelas páginas e analisa as respostas, sem mandar ataque. Roda
+# contra a produção porque é lá que valem os cabeçalhos e a configuração de
+# publicação: o servidor local de desenvolvimento não os aplica, e testar nele
+# daria falso alarme em tudo que é cabeçalho.
+on:
+  schedule:
+    - cron: "0 7 * * 1"
+  push:
+    branches: ["produção"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  zap:
+    name: OWASP ZAP baseline
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # Depois de um push em produção a Vercel ainda está publicando; esperar
+      # evita varrer a versão anterior.
+      - name: Esperar a publicação
+        if: github.event_name == 'push'
+        run: sleep 120
+      - uses: zaproxy/action-baseline@de8ad967d3548d44ef623df22cf95c3b0baf8b25 # v0.15.0
+        with:
+          target: "https://frontend-tan-mu-38.vercel.app"
+          rules_file_name: ".zap/regras.tsv"
+          # Sem permissão de escrita no repositório: o relatório sai como
+          # artefato, e qualquer alerta WARN ou FAIL fora das regras reprova.
+          allow_issue_writing: false
+          fail_action: true

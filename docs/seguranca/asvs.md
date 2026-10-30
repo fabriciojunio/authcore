@@ -13,7 +13,7 @@ quer dizer que uma parte do capítulo está coberta e outra não, e a parte que 
 | V3 Segurança do front | Parcial | CSP `default-src 'none'`, Trusted Types, HSTS, sem terceiros, cabeçalhos conferidos no contêiner pelo CI. Falta: o access token fica em `sessionStorage`. |
 | V4 API e serviços web | Atende | CORS com lista explícita, CSRF por `Origin`/`Referer` nas rotas de cookie, HPP, limite de requisições. |
 | V5 Arquivos | Parcial | Tamanho e quantidade limitados, nome aleatório, caminho confinado, o `sharp` decodifica a imagem e o que ele recusa é apagado. Falta: antivírus e um domínio separado se as imagens um dia forem servidas. |
-| V6 Autenticação | Parcial | bcrypt 12, bloqueio após 5 erros, limite por IP, TOTP no login. Falta: política de senha do ASVS 5 (mínimo maior e sem regra de composição), checagem contra senhas vazadas e a adesão ao 2FA pela interface. |
+| V6 Autenticação | Parcial | bcrypt 12, bloqueio após 5 erros, limite por IP, TOTP no login, passkeys com verificação do usuário obrigatória. Falta: política de senha do ASVS 5 (mínimo maior e sem regra de composição), checagem contra senhas vazadas e a adesão ao 2FA pela interface. |
 | V7 Sessão | Atende | Access de 15 min, refresh de 7 dias com rotação e detecção de reuso, `sessionVersion` revoga tudo no logout e na troca de senha (testes com Postgres). |
 | V8 Autorização | Atende | Negação por padrão, papel lido do banco a cada requisição, posse do produto no serviço; IDOR testado pelo HTTP em `ownership.routes.test.ts`. |
 | V9 Tokens autocontidos | Atende | Algoritmo fixo, `iss`, `aud`, `exp` e tipo conferidos; refresh guardado como SHA-256. |

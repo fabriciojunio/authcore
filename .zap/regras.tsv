@@ -1,0 +1,8 @@
+# Regras do ZAP: id<TAB>IGNORE|WARN|FAIL<TAB>motivo
+# Cada IGNORE foi triado em 28/10/2026 contra o site publicado.
+10015	IGNORE	Cache-Control revisto em 28/10/2026: conteudo publico, sem dado de usuario; o HTML usa max-age=0, must-revalidate
+10049	IGNORE	Conteudo publico estatico; guardar em cache nao expoe nada que o visitante nao pudesse baixar
+10050	IGNORE	Resposta vinda da CDN da Vercel, esperado para site estatico
+10096	IGNORE	Numero no bundle de JavaScript lido como data; nao revela nada do servidor
+10098	IGNORE	A Vercel poe Access-Control-Allow-Origin * em arquivo estatico; sem cookie nem login, ler de outra origem da o mesmo que baixar direto
+10109	IGNORE	Informativo: avisa que o site e uma aplicacao moderna e o spider tradicional pode nao cobrir tudo

@@ -69,6 +69,9 @@ authcore/
   everything
 - Lockout after 5 failures and a dummy comparison for unknown accounts
 - TOTP 2FA at login, with the secret encrypted in the database (AES-256-GCM, key derived by HKDF)
+- Passkeys (WebAuthn): passwordless sign-in with the device's biometrics or PIN, single-use
+  challenge in Redis, origin and RP checked, a counter that only moves forward and removal limited
+  to the owner
 
 ### Authorization
 - Deny by default; the role is read from the database on every request, not from the token
@@ -133,6 +136,13 @@ POST   /api/v1/auth/refresh           refresh the access token
 POST   /api/v1/auth/logout            log out and revoke sessions
 GET    /api/v1/auth/me                current user
 
+POST   /api/v1/auth/passkeys/registration/options   start passkey registration (signed in)
+POST   /api/v1/auth/passkeys/registration/verify    save the passkey (signed in)
+POST   /api/v1/auth/passkeys/authentication/options start a passkey sign-in
+POST   /api/v1/auth/passkeys/authentication/verify  sign in with a passkey
+GET    /api/v1/auth/passkeys                        list your own passkeys
+DELETE /api/v1/auth/passkeys/:id                    remove one of your passkeys
+
 GET    /api/v1/users/profile          own profile
 PATCH  /api/v1/users/profile          update profile
 PATCH  /api/v1/users/change-password  change password
@@ -153,7 +163,7 @@ npm run test:coverage      # with coverage
 cd backend && npm run test:watch
 ```
 
-264 back-end tests. Eight of them start a real PostgreSQL and only run with
+306 back-end tests. Twelve of them start a real PostgreSQL and Redis and only run with
 `AUTHCORE_POSTGRES_TEST=1`; in CI they always run. Minimum coverage is 80% of lines and 70% of
 branches.
 
@@ -166,6 +176,8 @@ All of them are in `backend/.env.example`. Required in production:
 - `ENCRYPTION_KEY`: 32+ characters; it encrypts the TOTP secret, so changing it means re-encrypting
   the column
 - `DB_PASSWORD` and `REDIS_PASSWORD`: strong passwords
+- `WEBAUTHN_RP_ID` and `WEBAUTHN_ORIGIN`: the front-end's exact domain and origin. A passkey is bound
+  to the domain, so changing `WEBAUTHN_RP_ID` invalidates every registered passkey
 
 ```bash
 node -e "console.log(require('crypto').randomBytes(64).toString('hex'))"

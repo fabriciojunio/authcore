@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { api, setTokens, clearTokens } from '../services/api'
+import { entrarComPasskey, mensagemDeErroPasskey } from '../services/passkeys'
 
 export interface AuthUser {
   id: string
@@ -24,6 +25,7 @@ interface AuthState {
   isLoading: boolean
   error: string | null
   login: (email: string, password: string) => Promise<void>
+  loginWithPasskey: () => Promise<void>
   loginAsDemo: () => void
   register: (name: string, email: string, password: string) => Promise<void>
   logout: () => Promise<void>
@@ -75,6 +77,18 @@ export const useAuthStore = create<AuthState>((set) => ({
     } catch (err: unknown) {
       const e = err as { message?: string }
       set({ error: e?.message ?? 'Credenciais inválidas', isLoading: false })
+      throw err
+    }
+  },
+
+  loginWithPasskey: async () => {
+    set({ isLoading: true, error: null })
+    try {
+      const { user, accessToken } = lerSessao(await entrarComPasskey())
+      setTokens(accessToken)
+      set({ user, isAuthenticated: true, isDemo: false, isLoading: false })
+    } catch (err: unknown) {
+      set({ error: mensagemDeErroPasskey(err, 'Não foi possível entrar com a passkey'), isLoading: false })
       throw err
     }
   },

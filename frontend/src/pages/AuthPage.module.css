@@ -235,6 +235,7 @@
   transition: background 0.12s, color 0.12s, border-color 0.12s;
 }
 .btnDemo:hover { background: var(--s2); color: var(--txt); border-color: var(--line); }
+.btnPasskey { margin-bottom: 10px; }
 
 .demoHint {
   font-size: 11px;

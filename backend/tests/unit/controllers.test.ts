@@ -1,13 +1,16 @@
 import type { Request, Response } from 'express';
 import { AuthController } from '../../src/controllers/auth.controller';
 import { UserController } from '../../src/controllers/user.controller';
+import { PasskeyController } from '../../src/controllers/passkey.controller';
 import { authService } from '../../src/services/auth.service';
 import { userService } from '../../src/services/user.service';
+import { passkeyService } from '../../src/services/passkey.service';
 import { HttpStatus, ValidationError } from '../../src/errors/AppError';
 import { UserRole } from '../../src/models/user.entity';
 
 jest.mock('../../src/services/auth.service');
 jest.mock('../../src/services/user.service');
+jest.mock('../../src/services/passkey.service');
 
 /**
  * Os controladores.
@@ -24,6 +27,7 @@ type Espia = {
   json: jest.Mock;
   cookie: jest.Mock;
   clearCookie: jest.Mock;
+  send: jest.Mock;
 };
 
 function respostaEspia(): Espia {
@@ -33,6 +37,7 @@ function respostaEspia(): Espia {
     json: jest.fn(),
     cookie: jest.fn(),
     clearCookie: jest.fn(),
+    send: jest.fn(),
   };
   status.mockReturnValue(espia);
   return { ...espia, res: espia as unknown as Response };
@@ -342,5 +347,79 @@ describe('UserController', () => {
       expect(corpo.data).toEqual([{ id: 'u-1', email: 'usuario@teste.com' }]);
       expect(corpo.meta.total).toBe(1);
     });
+  });
+});
+
+describe('PasskeyController', () => {
+  const controller = new PasskeyController();
+
+  it('should start registration for the signed-in user only', async () => {
+    jest.mocked(passkeyService.registrationOptions).mockResolvedValue({ challenge: 'desafio' } as never);
+    const resposta = respostaEspia();
+
+    await controller.registrationOptions(req({ user: usuarioLogado }), resposta.res);
+
+    expect(passkeyService.registrationOptions).toHaveBeenCalledWith('u-1');
+    expect(resposta.json).toHaveBeenCalledWith({ success: true, data: { challenge: 'desafio' } });
+  });
+
+  it('should answer 201 with the saved passkey', async () => {
+    jest.mocked(passkeyService.verifyRegistration).mockResolvedValue({ id: 'pk-1', name: 'Notebook' } as never);
+    const resposta = respostaEspia();
+
+    await controller.verifyRegistration(
+      req({ user: usuarioLogado, body: { name: 'Notebook', response: { id: 'abc' } } }),
+      resposta.res,
+    );
+
+    expect(passkeyService.verifyRegistration).toHaveBeenCalledWith('u-1', { id: 'abc' }, 'Notebook');
+    expect(resposta.status).toHaveBeenCalledWith(HttpStatus.CREATED);
+  });
+
+  it('should hand out a flow id with the sign-in options', async () => {
+    jest.mocked(passkeyService.authenticationOptions).mockResolvedValue({ flowId: 'f-1', options: {} } as never);
+    const resposta = respostaEspia();
+
+    await controller.authenticationOptions(req({}), resposta.res);
+
+    expect(resposta.json).toHaveBeenCalledWith({ success: true, data: { flowId: 'f-1', options: {} } });
+  });
+
+  // Entrar com passkey tem de deixar a sessão igual à do login com senha: o
+  // mesmo cookie travado e nenhum refresh token no corpo.
+  it('should set the same locked-down refresh cookie as the password login', async () => {
+    jest.mocked(passkeyService.verifyAuthentication).mockResolvedValue({
+      user: { id: 'u-1' },
+      tokens: { accessToken: 'acesso', refreshToken: 'renovacao', expiresIn: 900 },
+    } as never);
+    const resposta = respostaEspia();
+
+    await controller.verifyAuthentication(
+      req({ body: { flowId: 'f-1', response: { id: 'abc' } }, ip: '203.0.113.7', socket: {} }),
+      resposta.res,
+    );
+
+    expect(passkeyService.verifyAuthentication).toHaveBeenCalledWith('f-1', { id: 'abc' }, '203.0.113.7');
+    const [nome, valor, opcoes] = resposta.cookie.mock.calls[0]!;
+    expect(nome).toBe('refreshToken');
+    expect(valor).toBe('renovacao');
+    expect(opcoes).toMatchObject({ httpOnly: true, sameSite: 'strict', path: '/api/v1/auth/refresh' });
+    const [corpo] = resposta.json.mock.calls[0]!;
+    expect(JSON.stringify(corpo)).not.toContain('renovacao');
+  });
+
+  it('should list and remove passkeys of the signed-in user', async () => {
+    jest.mocked(passkeyService.list).mockResolvedValue([]);
+    jest.mocked(passkeyService.remove).mockResolvedValue();
+    const lista = respostaEspia();
+    const remocao = respostaEspia();
+
+    await controller.list(req({ user: usuarioLogado }), lista.res);
+    await controller.remove(req({ user: usuarioLogado, params: { id: 'pk-1' } }), remocao.res);
+
+    expect(passkeyService.list).toHaveBeenCalledWith('u-1');
+    expect(passkeyService.remove).toHaveBeenCalledWith('u-1', 'pk-1');
+    expect(remocao.status).toHaveBeenCalledWith(HttpStatus.NO_CONTENT);
+    expect(remocao.send).toHaveBeenCalled();
   });
 });
