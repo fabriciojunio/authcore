@@ -1,0 +1,28 @@
+spring:
+  application:
+    name: recursos
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          # O emissor que vai no token é o endereço público do Keycloak; as
+          # chaves vêm pela rede interna. Com os dois definidos, o Spring busca
+          # as chaves no jwk-set-uri e ainda confere o "iss" contra o issuer-uri.
+          issuer-uri: ${RECURSOS_EMISSOR:http://localhost:8180/realms/authcore}
+          jwk-set-uri: ${RECURSOS_JWKS:http://localhost:8180/realms/authcore/protocol/openid-connect/certs}
+          # Token emitido para outro serviço do mesmo Keycloak é recusado.
+          audiences: ${RECURSOS_AUDIENCIA:authcore-recursos}
+
+server:
+  error:
+    include-stacktrace: never
+    include-message: never
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never

@@ -233,6 +233,33 @@ jobs:
           done
           curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/.env | grep -x 403
 
+  # Keycloak emite, o Kong confere na borda e o serviço Spring confere de novo.
+  # A prova faz o login PKCE pelo formulário do Keycloak e tenta os ataques.
+  identidade:
+    name: Identidade (Keycloak + Kong)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: lint
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup Java
+        uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          java-version: '21'
+          distribution: temurin
+          cache: maven
+
+      - name: Testes do serviço protegido
+        working-directory: identidade/recursos
+        run: mvn -B verify
+
+      - name: Prova ponta a ponta
+        run: bash identidade/provar.sh
+
   # Auditoria de seguranca das dependencias
   security:
     name: Security Audit

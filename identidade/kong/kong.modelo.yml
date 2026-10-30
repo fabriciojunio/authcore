@@ -1,0 +1,54 @@
+# Modelo da configuração do Kong (sem banco). O script provar.sh preenche o
+# emissor e a chave pública que o Keycloak acabou de gerar e grava o resultado
+# em kong.yml, que não vai para o Git.
+_format_version: "3.0"
+
+services:
+  - name: recursos
+    url: http://recursos:8080
+    connect_timeout: 2000
+    read_timeout: 5000
+    write_timeout: 5000
+    retries: 0
+    routes:
+      - name: relatorios
+        paths: ["/api/relatorios"]
+        strip_path: false
+        methods: ["GET"]
+        protocols: ["http"]
+
+plugins:
+  # Assinatura e validade conferidas na borda: token forjado nem chega ao serviço.
+  - name: jwt
+    service: recursos
+    config:
+      key_claim_name: iss
+      claims_to_verify: ["exp"]
+      maximum_expiration: 3600
+      header_names: ["authorization"]
+      uri_param_names: []
+      cookie_names: []
+  - name: rate-limiting
+    service: recursos
+    config:
+      minute: 20
+      policy: local
+      limit_by: ip
+  - name: request-size-limiting
+    service: recursos
+    config:
+      allowed_payload_size: 1
+      size_unit: kilobytes
+  - name: response-transformer
+    service: recursos
+    config:
+      remove:
+        headers: ["Server", "X-Powered-By"]
+
+consumers:
+  - username: keycloak-authcore
+    jwt_secrets:
+      - key: "__EMISSOR__"
+        algorithm: RS256
+        rsa_public_key: |
+__CHAVE_PUBLICA__

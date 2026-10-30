@@ -52,3 +52,8 @@ uploads/
 # Playwright
 test-results/
 playwright-report/
+
+# Gerado pelo identidade/provar.sh a partir do modelo, com a chave do Keycloak
+identidade/kong/kong.yml
+identidade/recursos/target/
+__pycache__/

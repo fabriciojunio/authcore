@@ -1,0 +1,63 @@
+{
+  "realm": "authcore",
+  "enabled": true,
+  "sslRequired": "external",
+  "registrationAllowed": false,
+  "bruteForceProtected": true,
+  "failureFactor": 5,
+  "permanentLockout": false,
+  "accessTokenLifespan": 300,
+  "ssoSessionIdleTimeout": 1800,
+  "passwordPolicy": "length(12) and notUsername and notEmail",
+  "roles": { "realm": [ { "name": "analista" }, { "name": "usuario" } ] },
+  "clients": [
+    {
+      "clientId": "authcore-web",
+      "name": "Front-end (cliente público)",
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "redirectUris": ["http://localhost:5173/callback"],
+      "webOrigins": ["http://localhost:5173"],
+      "attributes": { "pkce.code.challenge.method": "S256", "post.logout.redirect.uris": "http://localhost:5173/" },
+      "protocolMappers": [
+        {
+          "name": "audiencia-authcore-recursos",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "config": { "included.custom.audience": "authcore-recursos", "access.token.claim": "true", "id.token.claim": "false" }
+        }
+      ]
+    },
+    {
+      "clientId": "outro-servico",
+      "name": "Serviço sem acesso aos relatórios",
+      "publicClient": false,
+      "secret": "${AUTHCORE_SEGREDO_OUTRO_SERVICO}",
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true
+    }
+  ],
+  "users": [
+    {
+      "username": "ana", "enabled": true, "email": "ana@exemplo.com.br", "emailVerified": true,
+      "firstName": "Ana", "lastName": "Analista",
+      "credentials": [ { "type": "password", "value": "${AUTHCORE_SENHA_ANA}", "temporary": false } ],
+      "realmRoles": ["analista"]
+    },
+    {
+      "username": "bruno", "enabled": true, "email": "bruno@exemplo.com.br", "emailVerified": true,
+      "firstName": "Bruno", "lastName": "Usuario",
+      "credentials": [ { "type": "password", "value": "${AUTHCORE_SENHA_BRUNO}", "temporary": false } ],
+      "realmRoles": ["usuario"]
+    },
+    {
+      "username": "service-account-outro-servico", "enabled": true,
+      "serviceAccountClientId": "outro-servico",
+      "realmRoles": ["analista"]
+    }
+  ]
+}
