@@ -37,8 +37,16 @@ class SemRedirecionar(urllib.request.HTTPRedirectHandler):
         return None
 
 
+class PoliticaDeLocalhost(http.cookiejar.DefaultCookiePolicy):
+    """O Keycloak marca o cookie da sessão de login como Secure. O navegador trata
+    http://localhost como contexto seguro e envia; o cookiejar só envia em HTTPS."""
+
+    def return_ok_secure(self, cookie, request):
+        return urllib.parse.urlparse(request.get_full_url()).hostname == "localhost" or super().return_ok_secure(cookie, request)
+
+
 def navegador():
-    cookies = http.cookiejar.CookieJar()
+    cookies = http.cookiejar.CookieJar(PoliticaDeLocalhost())
     return urllib.request.build_opener(urllib.request.HTTPCookieProcessor(cookies), SemRedirecionar())
 
 
@@ -120,7 +128,7 @@ def main():
     conferir(status == 400 and "code=" not in local, "redirect_uri fora da lista não recebe código")
 
     status, local, _ = autorizar("ana", "senha-errada")
-    conferir("code=" not in local, "senha errada não gera código")
+    conferir(status == 200 and "code=" not in local, "senha errada volta para o formulário, sem código")
 
     status, local, verificador = autorizar("ana", ana)
     status_sem, _ = trocar(codigo(local))
