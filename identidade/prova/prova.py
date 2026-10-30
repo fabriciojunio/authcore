@@ -112,6 +112,12 @@ def relatorios(token=None):
     return chamar(navegador(), KONG, cabecalhos=cabecalhos)
 
 
+def recusado_pelo_spring(cabecalhos):
+    # O Spring responde 401 com WWW-Authenticate: Bearer error="invalid_token";
+    # o plugin jwt do Kong não manda esse cabeçalho. É assim que se sabe quem barrou.
+    return 'error="invalid_token"' in cabecalhos.get("WWW-Authenticate", "")
+
+
 def payload(token):
     parte = token.split(".")[1]
     return json.loads(base64.urlsafe_b64decode(parte + "=" * (-len(parte) % 4)))
@@ -166,12 +172,12 @@ def main():
     cabecalho, carga, assinatura = token_ana.split(".")
     adulterado = dict(dados, realm_access={"roles": ["analista", "admin"]}, sub="outra-pessoa")
     forjado = f"{cabecalho}.{b64url(json.dumps(adulterado).encode())}.{assinatura}"
-    status, _, _ = relatorios(forjado)
-    conferir(status == 401, "token com o conteúdo alterado é barrado pelo Kong")
+    status, cabecalhos, _ = relatorios(forjado)
+    conferir(status == 401 and not recusado_pelo_spring(cabecalhos), "token com o conteúdo alterado é barrado pelo Kong")
 
     sem_assinatura = f"{b64url(json.dumps({'alg': 'none', 'typ': 'JWT'}).encode())}.{carga}."
-    status, _, _ = relatorios(sem_assinatura)
-    conferir(status == 401, "token com alg none é barrado pelo Kong")
+    status, cabecalhos, _ = relatorios(sem_assinatura)
+    conferir(status == 401 and not recusado_pelo_spring(cabecalhos), "token com alg none é barrado pelo Kong")
 
     status, _, _ = relatorios(login("bruno", bruno))
     conferir(status == 403, "bruno, sem o papel de analista, recebe 403 do serviço")
@@ -180,8 +186,9 @@ def main():
         "grant_type": "client_credentials", "client_id": "outro-servico",
         "client_secret": os.environ["AUTHCORE_SEGREDO_OUTRO_SERVICO"]})
     token_outro = json.loads(corpo)["access_token"]
-    status, _, _ = relatorios(token_outro)
-    conferir(status == 401, "token válido do mesmo Keycloak, mas de outra audiência, é recusado pelo serviço")
+    status, cabecalhos, _ = relatorios(token_outro)
+    conferir(status == 401 and recusado_pelo_spring(cabecalhos),
+             "token válido do mesmo Keycloak, mas de outra audiência, passa pelo Kong e é recusado pelo serviço")
 
     print("\nKong: limite e exposição")
     codigos = [relatorios(token_ana)[0] for _ in range(45)]
