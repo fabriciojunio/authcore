@@ -1,0 +1,62 @@
+# Keycloak emite o token, o Kong confere na borda e o serviço Spring confere de
+# novo. Só o Keycloak e o Kong ficam acessíveis, e só a partir desta máquina;
+# o serviço não publica porta nenhuma.
+#
+# As senhas vêm do ambiente (o provar.sh gera valores aleatórios a cada subida).
+services:
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.8.1-0@sha256:79c623a22abacf3fe6c00a5fb30f5b7843d717b234033b80995891c06116d244
+    command: ["start-dev", "--import-realm"]
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${AUTHCORE_SENHA_ADMIN_KEYCLOAK:?defina a senha do admin}
+      # O "iss" do token é sempre o endereço público, venha a chamada de onde vier.
+      KC_HOSTNAME: http://localhost:8180
+      KC_HOSTNAME_BACKCHANNEL_DYNAMIC: "true"
+      KC_HEALTH_ENABLED: "true"
+      AUTHCORE_SENHA_ANA: ${AUTHCORE_SENHA_ANA:?defina a senha da ana}
+      AUTHCORE_SENHA_BRUNO: ${AUTHCORE_SENHA_BRUNO:?defina a senha do bruno}
+      AUTHCORE_SEGREDO_OUTRO_SERVICO: ${AUTHCORE_SEGREDO_OUTRO_SERVICO:?defina o segredo do outro-servico}
+    volumes:
+      - ./keycloak/realm-authcore.json:/opt/keycloak/data/import/realm-authcore.json:ro
+    ports:
+      - "127.0.0.1:8180:8080"
+
+  recursos:
+    build: ./recursos
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+    security_opt:
+      - no-new-privileges:true
+    cap_drop: ["ALL"]
+    environment:
+      RECURSOS_EMISSOR: http://localhost:8180/realms/authcore
+      RECURSOS_JWKS: http://keycloak:8080/realms/authcore/protocol/openid-connect/certs
+      RECURSOS_AUDIENCIA: authcore-recursos
+    depends_on:
+      - keycloak
+
+  kong:
+    image: kong:3.9.3@sha256:92035d16d7ff86b7bc12fb1d0090d29357d924238b1880f78735f3f2fea6b631
+    read_only: true
+    tmpfs:
+      - /tmp:rw,size=64m
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      KONG_DATABASE: "off"
+      KONG_DECLARATIVE_CONFIG: /kong/kong.yml
+      KONG_PREFIX: /tmp/kong
+      KONG_PROXY_LISTEN: 0.0.0.0:8000
+      # Sem API de administração: a configuração só muda pelo arquivo.
+      KONG_ADMIN_LISTEN: "off"
+      KONG_HEADERS: "off"
+      KONG_PROXY_ACCESS_LOG: /dev/stdout
+      KONG_PROXY_ERROR_LOG: /dev/stderr
+    volumes:
+      - ./kong/kong.yml:/kong/kong.yml:ro
+    ports:
+      - "127.0.0.1:8000:8000"
+    depends_on:
+      - recursos

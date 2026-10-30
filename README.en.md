@@ -125,6 +125,12 @@ docker-compose ps
 curl http://localhost/health
 ```
 
+## Identity with Keycloak and Kong
+
+The [`identidade/`](identidade/README.en.md) folder shows the same problem solved with a separate
+identity provider: Keycloak with Authorization Code and PKCE, Kong at the edge and a Spring Boot
+service that validates the token again. An automated proof runs the attacks in CI.
+
 ## API
 
 Interactive docs at `http://localhost:3001/api-docs`, development only.
