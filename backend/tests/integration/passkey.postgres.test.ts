@@ -2,6 +2,7 @@ import { randomUUID } from 'crypto';
 import request from 'supertest';
 import { createApp } from '../../src/app';
 import { AppDataSource } from '../../src/config/database';
+import { closeRedis, initializeRedis } from '../../src/config/redis';
 import { UserRole, UserStatus } from '../../src/models/user.entity';
 import { Passkey } from '../../src/models/passkey.entity';
 import { userRepository } from '../../src/repositories/user.repository';
@@ -18,10 +19,13 @@ postgres('Passkeys com PostgreSQL e Redis reais', () => {
     }
     await AppDataSource.initialize();
     await AppDataSource.runMigrations();
+    // O desafio de uso único vive no Redis; sem ele o teste não provaria o replay.
+    await initializeRedis();
   });
 
   afterAll(async () => {
     if (AppDataSource.isInitialized) await AppDataSource.destroy();
+    await closeRedis();
   });
 
   async function contaComLogin(): Promise<{ id: string; bearer: string }> {
