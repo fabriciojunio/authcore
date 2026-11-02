@@ -5,3 +5,13 @@
 id = "GHSA-gcqx-w48m-w2h4"
 ignoreUntil = 2027-04-28T00:00:00Z
 reason = "deepmerge comes only through Jest and exists only in tests; no fixed release exists and npm's suggested fix downgrades Jest to a 2020 version."
+
+[[IgnoredVulns]]
+id = "GHSA-3g3m-2fjr-6pw4"
+ignoreUntil = 2027-05-02T00:00:00Z
+reason = "glob ReDoS: triggered only by an attacker-controlled glob pattern. Here glob comes transitively through Jest (dev), swagger-jsdoc and typeorm, where the pattern is static developer config (entity and spec paths), never request input. The fix is glob 14, a major jump that breaks Jest (glob 7 API) and typeorm."
+
+[[IgnoredVulns]]
+id = "GHSA-g3hv-75wg-m249"
+ignoreUntil = 2027-05-02T00:00:00Z
+reason = "minimatch ReDoS: triggered only by an attacker-controlled pattern. It comes transitively through the same glob chains (Jest, swagger-jsdoc, typeorm) with static patterns, never request input. The fix is minimatch 11, pulled in only by glob 14, which breaks Jest and typeorm."

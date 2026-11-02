@@ -59,6 +59,8 @@ dessa lista e volta a barrar um aceite quando a data de revisão passa.
 |---|---|---|
 | CodeQL `js/missing-token-validation` em `backend/src/app.ts` | A regra só reconhece bibliotecas como `csurf`; a proteção aqui é a verificação de `Origin`/`Referer`, prevista no OWASP CSRF Prevention Cheat Sheet, com testes próprios. | 28/04/2027 |
 | `deepmerge`, GHSA-gcqx-w48m-w2h4 (baixa no npm, CVSS 5,3 no OSV) | Vem do Jest e só existe nos testes; não há versão corrigida e a sugestão do npm rebaixaria o Jest para uma versão de 2020. Registrado em [`osv-scanner.toml`](osv-scanner.toml). | 28/04/2027 |
+| `glob`, GHSA-3g3m-2fjr-6pw4 (ReDoS, CVSS 6,3) | O ReDoS só dispara com padrão de glob vindo do atacante. Aqui a glob entra de forma transitiva pelo Jest (dev), swagger-jsdoc e typeorm, onde o padrão é configuração fixa no código (caminho de entidades e de specs), nunca entrada de requisição. A correção é a glob 14, salto maior que quebra o Jest e o typeorm. Registrado em [`osv-scanner.toml`](osv-scanner.toml). | 02/05/2027 |
+| `minimatch`, GHSA-g3hv-75wg-m249 (ReDoS, CVSS 6,9) | Mesmo caso da glob: só dispara com padrão controlado pelo atacante e entra pelas mesmas cadeias, com padrão fixo. A correção é a minimatch 11, puxada só pela glob 14. Registrado em [`osv-scanner.toml`](osv-scanner.toml). | 02/05/2027 |
 
 ## Validação técnica
 
