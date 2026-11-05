@@ -27,6 +27,13 @@ describe('fieldCipher', () => {
     expect(() => decryptField([version, iv, tag, flipped].join(':'), CONTEXT)).toThrow();
   });
 
+  it('refuses a truncated tag, which would make forging a value much cheaper', () => {
+    const [version, iv, tag, data] = encryptField(SECRET, CONTEXT).split(':');
+    const shortTag = Buffer.from(tag, 'base64url').subarray(0, 4).toString('base64url');
+
+    expect(() => decryptField([version, iv, shortTag, data].join(':'), CONTEXT)).toThrow();
+  });
+
   it('refuses a value copied from another column', () => {
     const stored = encryptField(SECRET, 'users.other_column');
 
