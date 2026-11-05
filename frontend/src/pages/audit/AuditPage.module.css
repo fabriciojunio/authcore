@@ -112,3 +112,10 @@
 }
 .pagBtn:hover:not(.pagActive) { background: var(--s2); color: var(--txt); }
 .pagActive { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+.stateBox { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 60px; color: var(--muted); font-size: 13px; }
+.spinner { width: 18px; height: 18px; border: 2px solid var(--line); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.6s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.demoNote { margin: 12px 28px 0; padding: 8px 12px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--s2); color: var(--muted); font-size: 12px; }
+.select { background: var(--s2); border: 1px solid var(--line); border-radius: var(--radius); color: var(--txt); font-size: 12px; padding: 6px 8px; }
+.pagBtn:disabled, .btnOutline:disabled { opacity: 0.4; cursor: not-allowed; }
