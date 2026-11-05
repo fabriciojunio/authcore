@@ -47,7 +47,7 @@
     "uuid": "^11.1.1",
     "winston": "^3.11.0",
     "winston-daily-rotate-file": "^4.7.1",
-    "xss": "^1.0.14",
+    "xss": "^1.0.17",
     "zod": "^4.6.7"
   },
   "devDependencies": {
