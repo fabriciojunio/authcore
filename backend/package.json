@@ -38,7 +38,7 @@
     "pg": "^8.11.3",
     "qrcode": "^1.5.3",
     "redis": "^4.6.10",
-    "reflect-metadata": "^0.1.13",
+    "reflect-metadata": "^0.2.2",
     "sharp": "^0.35.4",
     "speakeasy": "^2.0.0",
     "swagger-jsdoc": "^6.2.8",
