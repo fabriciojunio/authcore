@@ -68,6 +68,20 @@ describe('AuditService', () => {
     }));
   });
 
+  it('o log da falha não leva IP, user agent nem os parâmetros do INSERT', async () => {
+    const falha = Object.assign(new Error('insert falhou'), { parameters: ['203.0.113.7', 'Mozilla/5.0'] });
+    mockRepo.create.mockRejectedValue(falha);
+
+    await service.record({
+      action: AuditAction.PASSWORD_CHANGE, userId: 'u-1', ipAddress: '203.0.113.7', userAgent: 'Mozilla/5.0',
+    });
+
+    const registrado = JSON.stringify((logger.error as jest.Mock).mock.calls.at(-1));
+    expect(registrado).toContain('user.password_change');
+    expect(registrado).not.toContain('203.0.113.7');
+    expect(registrado).not.toContain('Mozilla');
+  });
+
   it('a listagem repassa página, limite e filtro ao repositório', async () => {
     mockRepo.list.mockResolvedValue({ data: [], meta: {} } as never);
 

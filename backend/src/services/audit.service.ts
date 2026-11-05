@@ -48,7 +48,12 @@ export class AuditService {
         userAgent: event.userAgent ? event.userAgent.slice(0, MAX_USER_AGENT) : null,
       });
     } catch (error) {
-      logger.error('Audit write failed', { action: event.action, userId: event.userId ?? null, error });
+      // Só o nome do erro: o erro do driver carrega os parâmetros do INSERT, e o IP é dado pessoal.
+      logger.error('Audit write failed', {
+        action: event.action,
+        userId: event.userId ?? null,
+        error: error instanceof Error ? error.name : 'unknown',
+      });
     }
   }
 
