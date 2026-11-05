@@ -1,11 +1,12 @@
 import { Request, Response } from 'express';
 import { authService } from '@services/auth.service';
 import { HttpStatus } from '@errors/AppError';
+import { auditContext } from '@utils/auditContext';
 import type { RegisterDto, LoginDto } from '@validators/auth.validator';
 
 export class AuthController {
   async register(req: Request, res: Response): Promise<void> {
-    const result = await authService.register(req.body as RegisterDto);
+    const result = await authService.register(req.body as RegisterDto, auditContext(req));
     res.status(HttpStatus.CREATED).json({
       success: true,
       data: result,
@@ -14,7 +15,7 @@ export class AuthController {
 
   async login(req: Request, res: Response): Promise<void> {
     const ipAddress = req.ip ?? req.socket.remoteAddress ?? 'unknown';
-    const result = await authService.login(req.body as LoginDto, ipAddress);
+    const result = await authService.login(req.body as LoginDto, ipAddress, auditContext(req).userAgent);
 
     // Set refresh token as httpOnly cookie
     res.cookie('refreshToken', result.tokens.refreshToken, {
@@ -40,7 +41,7 @@ export class AuthController {
     const cookies = req.cookies as { refreshToken?: string };
     const body = req.body as { refreshToken?: string };
     const refreshToken = cookies.refreshToken ?? body.refreshToken ?? '';
-    const tokens = await authService.refresh(refreshToken);
+    const tokens = await authService.refresh(refreshToken, auditContext(req));
 
     res.cookie('refreshToken', tokens.refreshToken, {
       httpOnly: true,
@@ -63,7 +64,7 @@ export class AuthController {
     const cookies = req.cookies as { refreshToken?: string };
     const body = req.body as { refreshToken?: string };
     const refreshToken = cookies.refreshToken ?? body.refreshToken ?? '';
-    await authService.logout(req.user!.id, refreshToken);
+    await authService.logout(req.user!.id, refreshToken, auditContext(req));
 
     res.clearCookie('refreshToken', { path: '/api/v1/auth/refresh' });
 

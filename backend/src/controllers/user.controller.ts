@@ -3,6 +3,7 @@ import { userService } from '@services/user.service';
 import type { UpdateProfileDto, ChangePasswordDto } from '@services/user.service';
 import { HttpStatus } from '@errors/AppError';
 import { ValidationError } from '@errors/AppError';
+import { auditContext } from '@utils/auditContext';
 
 export class UserController {
   async getProfile(req: Request, res: Response): Promise<void> {
@@ -22,7 +23,7 @@ export class UserController {
   }
 
   async changePassword(req: Request, res: Response): Promise<void> {
-    await userService.changePassword(req.user!.id, req.body as ChangePasswordDto);
+    await userService.changePassword(req.user!.id, req.body as ChangePasswordDto, auditContext(req));
     res.status(HttpStatus.OK).json({
       success: true,
       data: { message: 'Password changed successfully' },
@@ -64,7 +65,7 @@ export class UserController {
   }
 
   async deleteAccount(req: Request, res: Response): Promise<void> {
-    await userService.deleteAccount(req.user!.id);
+    await userService.deleteAccount(req.user!.id, auditContext(req));
     res.status(HttpStatus.OK).json({
       success: true,
       data: { message: 'Account deleted successfully' },

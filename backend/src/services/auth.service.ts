@@ -12,6 +12,7 @@ import {
 } from '@errors/AppError';
 import { logger } from '@config/logger';
 import { TokenPair } from './token.service';
+import { auditService, AuditAction, AuditContext } from './audit.service';
 
 export interface RegisterDto {
   name: string;
@@ -40,7 +41,7 @@ export class AuthService {
   // usuário não existe, evitando enumeração por timing attack.
   private dummyHash: string | null = null;
 
-  async register(dto: RegisterDto): Promise<{ message: string }> {
+  async register(dto: RegisterDto, context: AuditContext = {}): Promise<{ message: string }> {
     const email = dto.email.toLowerCase().trim();
     const existing = await userRepository.findByEmail(email);
 
@@ -48,6 +49,7 @@ export class AuthService {
       // Não revela que o e-mail já existe; um e-mail de "conta já cadastrada"
       // seria enviado em produção.
       logger.warn('Registration attempt for existing email', { userId: existing.id });
+      await auditService.record({ action: AuditAction.REGISTER_EXISTING, userId: existing.id, ...context });
       return { message: AuthService.REGISTER_MESSAGE };
     }
 
@@ -60,20 +62,29 @@ export class AuthService {
 
     // In production: send verification email here
     logger.info('User registered', { userId: user.id });
+    await auditService.record({ action: AuditAction.REGISTER, userId: user.id, ...context });
 
     return { message: AuthService.REGISTER_MESSAGE };
   }
 
-  async login(dto: LoginDto, ipAddress: string): Promise<AuthResult> {
+  async login(dto: LoginDto, ipAddress: string, userAgent?: string): Promise<AuthResult> {
+    const context: AuditContext = { ipAddress, userAgent };
+    // O e-mail digitado não vai para a trilha: num login que recordFailure ele pode ser
+    // de outra pessoa, ou a própria senha colada no campo errado.
+    const recordFailure = (userId: string | null, reason: string): Promise<void> =>
+      auditService.record({ action: AuditAction.LOGIN_FAILED, userId, details: { reason }, ...context });
+
     const user = await userRepository.findByEmailWithPassword(dto.email);
 
     // Consistent timing to prevent user enumeration
     if (!user) {
       await this.simulatePasswordCheck(dto.password);
+      await recordFailure(null, 'unknown_user');
       throw new AuthenticationError('Invalid credentials');
     }
 
     if (user.isLocked()) {
+      await recordFailure(user.id, 'locked');
       throw new AuthenticationError(
         'Account temporarily locked due to too many failed attempts. Try again later.'
       );
@@ -84,14 +95,17 @@ export class AuthService {
     if (!isPasswordValid) {
       await userRepository.recordFailedLogin(user);
       logger.warn('Failed login attempt', { userId: user.id, ipAddress });
+      await recordFailure(user.id, 'bad_password');
       throw new AuthenticationError('Invalid credentials');
     }
 
     if (!user.isEmailVerified()) {
+      await recordFailure(user.id, 'unverified');
       throw new AuthenticationError('Please verify your email before logging in');
     }
 
     if (user.status !== UserStatus.ACTIVE) {
+      await recordFailure(user.id, 'inactive');
       throw new AuthenticationError('Account is not active');
     }
 
@@ -102,6 +116,7 @@ export class AuthService {
       const isValidTotp = this.verifyTotp(user.twoFactorSecret!, dto.totp);
       if (!isValidTotp) {
         await userRepository.recordFailedLogin(user);
+        await recordFailure(user.id, 'bad_totp');
         throw new AuthenticationError('Invalid two-factor code');
       }
     }
@@ -120,11 +135,12 @@ export class AuthService {
     user.lastLoginAt = new Date();
 
     logger.info('User logged in', { userId: user.id, ipAddress });
+    await auditService.record({ action: AuditAction.LOGIN, userId: user.id, details: { method: 'password' }, ...context });
 
     return { user: user.toSafeObject(), tokens };
   }
 
-  async refresh(refreshToken: string): Promise<TokenPair> {
+  async refresh(refreshToken: string, context: AuditContext = {}): Promise<TokenPair> {
     const payload = tokenService.verifyRefreshToken(refreshToken);
 
     const user = await userRepository.findById(payload.sub);
@@ -151,13 +167,14 @@ export class AuthService {
       await userRepository.revokeSessions(user.id);
       await cacheService.delete(`auth:${user.id}`);
       logger.warn('Possible refresh token reuse attack', { userId: user.id });
+      await auditService.record({ action: AuditAction.REFRESH_REUSE, userId: user.id, ...context });
       throw new AuthenticationError('Invalid refresh token');
     }
 
     return tokens;
   }
 
-  async logout(userId: string, refreshToken: string): Promise<void> {
+  async logout(userId: string, refreshToken: string, context: AuditContext = {}): Promise<void> {
     const user = await userRepository.findById(userId);
     if (!user) throw new NotFoundError('User');
 
@@ -169,6 +186,7 @@ export class AuthService {
     // Invalidate user cache (mesma chave usada em auth.middleware.ts)
     await cacheService.delete(`auth:${userId}`);
     logger.info('User logged out', { userId });
+    await auditService.record({ action: AuditAction.LOGOUT, userId, ...context });
   }
 
   private async getDummyHash(): Promise<string> {

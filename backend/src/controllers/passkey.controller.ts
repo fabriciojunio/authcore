@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { passkeyService } from '@services/passkey.service';
 import { HttpStatus } from '@errors/AppError';
+import { auditContext } from '@utils/auditContext';
 import type { PasskeyAuthenticationDto, PasskeyRegistrationDto } from '@validators/passkey.validator';
 
 export class PasskeyController {
@@ -11,7 +12,7 @@ export class PasskeyController {
 
   async verifyRegistration(req: Request, res: Response): Promise<void> {
     const { name, response } = req.body as PasskeyRegistrationDto;
-    const passkey = await passkeyService.verifyRegistration(req.user!.id, response, name);
+    const passkey = await passkeyService.verifyRegistration(req.user!.id, response, name, auditContext(req));
     res.status(HttpStatus.CREATED).json({ success: true, data: passkey });
   }
 
@@ -23,7 +24,7 @@ export class PasskeyController {
   async verifyAuthentication(req: Request, res: Response): Promise<void> {
     const ipAddress = req.ip ?? req.socket.remoteAddress ?? 'unknown';
     const { flowId, response } = req.body as PasskeyAuthenticationDto;
-    const result = await passkeyService.verifyAuthentication(flowId, response, ipAddress);
+    const result = await passkeyService.verifyAuthentication(flowId, response, ipAddress, auditContext(req).userAgent);
 
     // Mesmo cookie do login com senha: a passkey só troca a forma de provar quem é.
     res.cookie('refreshToken', result.tokens.refreshToken, {
@@ -50,7 +51,7 @@ export class PasskeyController {
   }
 
   async remove(req: Request, res: Response): Promise<void> {
-    await passkeyService.remove(req.user!.id, (req.params as { id: string }).id);
+    await passkeyService.remove(req.user!.id, (req.params as { id: string }).id, auditContext(req));
     res.status(HttpStatus.NO_CONTENT).send();
   }
 }
