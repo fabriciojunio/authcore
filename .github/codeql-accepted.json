@@ -7,5 +7,14 @@
     "owner": "Fabrício Júnio",
     "accepted": "2026-10-28",
     "review": "2027-04-28"
+  },
+  {
+    "rule": "js/clear-text-logging",
+    "path": "backend/src/services/audit.service.ts",
+    "reason": "False positive. The value logged is the fixed action label 'user.password_change'; CodeQL flags it only because the enum member is named PASSWORD_CHANGE. No password, token, IP address or user agent reaches the log: the driver error is reduced to its name.",
+    "mitigation": "Unit test 'o log da falha não leva IP, user agent nem os parâmetros do INSERT' in backend/tests/unit/audit.service.test.ts.",
+    "owner": "Fabrício Júnio",
+    "accepted": "2026-11-05",
+    "review": "2027-05-05"
   }
 ]
