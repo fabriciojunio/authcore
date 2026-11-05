@@ -14,6 +14,7 @@ import authRoutes from '@routes/auth.routes';
 import userRoutes from '@routes/user.routes';
 import productRoutes from '@routes/product.routes';
 import healthRoutes from '@routes/health.routes';
+import auditRoutes from '@routes/audit.routes';
 import { logger } from '@config/logger';
 
 export function createApp(): express.Application {
@@ -55,6 +56,7 @@ export function createApp(): express.Application {
   app.use(`${config.app.apiPrefix}/auth`, authRoutes);
   app.use(`${config.app.apiPrefix}/users`, userRoutes);
   app.use(`${config.app.apiPrefix}/products`, productRoutes);
+  app.use(`${config.app.apiPrefix}/audit`, auditRoutes);
 
   // ─── 404 Handler ─────────────────────────────────────────────────
   app.use(notFoundHandler);

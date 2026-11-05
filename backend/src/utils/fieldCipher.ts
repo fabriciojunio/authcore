@@ -4,6 +4,8 @@ import { config } from '@config/app.config';
 
 const VERSION = 'v1';
 const IV_BYTES = 12;
+// Sem fixar o tamanho, o Node aceita tag de 4 bytes, e forjar um valor fica barato.
+const TAG_BYTES = 16;
 
 // ENCRYPTION_KEY é texto; o HKDF tira dele os 32 bytes do AES-256. O "info" separa esta chave de
 // qualquer outra que um dia saia do mesmo segredo.
@@ -21,7 +23,7 @@ export function isEncryptedField(stored: string): boolean {
  */
 export function encryptField(plain: string, context: string): string {
   const iv = crypto.randomBytes(IV_BYTES);
-  const cipher = crypto.createCipheriv('aes-256-gcm', fieldKey(), iv);
+  const cipher = crypto.createCipheriv('aes-256-gcm', fieldKey(), iv, { authTagLength: TAG_BYTES });
   cipher.setAAD(Buffer.from(context));
   const data = Buffer.concat([cipher.update(plain, 'utf8'), cipher.final()]);
   const tag = cipher.getAuthTag();
@@ -33,9 +35,15 @@ export function decryptField(stored: string, context: string): string {
   if (version !== VERSION || !iv || !tag || data === undefined) {
     throw new Error('Encrypted field has an unknown format');
   }
-  const decipher = crypto.createDecipheriv('aes-256-gcm', fieldKey(), Buffer.from(iv, 'base64url'));
+  const authTag = Buffer.from(tag, 'base64url');
+  if (authTag.length !== TAG_BYTES) {
+    throw new Error('Encrypted field has an unknown format');
+  }
+  const decipher = crypto.createDecipheriv('aes-256-gcm', fieldKey(), Buffer.from(iv, 'base64url'), {
+    authTagLength: TAG_BYTES,
+  });
   decipher.setAAD(Buffer.from(context));
-  decipher.setAuthTag(Buffer.from(tag, 'base64url'));
+  decipher.setAuthTag(authTag);
   return Buffer.concat([decipher.update(Buffer.from(data, 'base64url')), decipher.final()]).toString('utf8');
 }
 

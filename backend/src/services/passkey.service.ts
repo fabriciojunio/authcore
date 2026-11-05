@@ -19,6 +19,7 @@ import { passkeyRepository } from '@repositories/passkey.repository';
 import { userRepository } from '@repositories/user.repository';
 import { cacheService } from './cache.service';
 import { tokenService } from './token.service';
+import { auditService, AuditAction, AuditContext } from './audit.service';
 import type { AuthResult } from './auth.service';
 
 // Cinco minutos para o usuário tocar no sensor; depois disso o desafio vale nada.
@@ -66,7 +67,9 @@ export class PasskeyService {
     return options;
   }
 
-  async verifyRegistration(userId: string, response: RegistrationResponseJSON, name: string): Promise<PasskeyView> {
+  async verifyRegistration(
+    userId: string, response: RegistrationResponseJSON, name: string, context: AuditContext = {}
+  ): Promise<PasskeyView> {
     const desafio = await cacheService.consume<Desafio>(`webauthn:registro:${userId}`);
     if (!desafio) throw new AuthenticationError('Passkey registration expired. Start again');
 
@@ -97,6 +100,7 @@ export class PasskeyService {
       name,
     });
     logger.info('Passkey registered', { userId, passkeyId: salva.id });
+    await auditService.record({ action: AuditAction.PASSKEY_ADD, userId, details: { passkeyId: salva.id }, ...context });
     return paraView(salva);
   }
 
@@ -112,7 +116,9 @@ export class PasskeyService {
     return { flowId, options };
   }
 
-  async verifyAuthentication(flowId: string, response: AuthenticationResponseJSON, ipAddress: string): Promise<AuthResult> {
+  async verifyAuthentication(
+    flowId: string, response: AuthenticationResponseJSON, ipAddress: string, userAgent?: string
+  ): Promise<AuthResult> {
     const desafio = await cacheService.consume<Desafio>(`webauthn:login:${flowId}`);
     if (!desafio) throw new AuthenticationError('Passkey sign-in expired. Start again');
 
@@ -178,6 +184,9 @@ export class PasskeyService {
     if (!completed) throw new AuthenticationError('Credentials changed. Please sign in again');
 
     logger.info('User logged in with passkey', { userId: user.id, passkeyId: passkey.id, ipAddress });
+    await auditService.record({
+      action: AuditAction.LOGIN, userId: user.id, details: { method: 'passkey' }, ipAddress, userAgent,
+    });
     return { user: user.toSafeObject(), tokens };
   }
 
@@ -185,9 +194,10 @@ export class PasskeyService {
     return (await passkeyRepository.listByUser(userId)).map(paraView);
   }
 
-  async remove(userId: string, passkeyId: string): Promise<void> {
+  async remove(userId: string, passkeyId: string, context: AuditContext = {}): Promise<void> {
     if (!(await passkeyRepository.deleteOwned(passkeyId, userId))) throw new NotFoundError('Passkey');
     logger.info('Passkey removed', { userId, passkeyId });
+    await auditService.record({ action: AuditAction.PASSKEY_REMOVE, userId, details: { passkeyId }, ...context });
   }
 }
 

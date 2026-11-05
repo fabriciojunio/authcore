@@ -6,6 +6,7 @@ import { logger } from '@config/logger';
 import { PaginatedResult, PaginationOptions } from '@repositories/base.repository';
 import bcrypt from 'bcryptjs';
 import { config } from '@config/app.config';
+import { auditService, AuditAction, AuditContext } from './audit.service';
 
 export interface UpdateProfileDto {
   name?: string;
@@ -45,7 +46,7 @@ export class UserService {
     return updated;
   }
 
-  async changePassword(userId: string, dto: ChangePasswordDto): Promise<void> {
+  async changePassword(userId: string, dto: ChangePasswordDto, context: AuditContext = {}): Promise<void> {
     const baseUser = await userRepository.findById(userId);
     if (!baseUser) throw new NotFoundError('User');
 
@@ -67,6 +68,7 @@ export class UserService {
     await cacheService.delete(`user:${userId}`);
     await cacheService.delete(`auth:${userId}`);
     logger.info('User password changed', { userId });
+    await auditService.record({ action: AuditAction.PASSWORD_CHANGE, userId, ...context });
   }
 
   async getAllUsers(
@@ -90,7 +92,7 @@ export class UserService {
     return user;
   }
 
-  async deleteAccount(userId: string): Promise<void> {
+  async deleteAccount(userId: string, context: AuditContext = {}): Promise<void> {
     const user = await userRepository.findById(userId);
     if (!user) throw new NotFoundError('User');
 
@@ -98,6 +100,7 @@ export class UserService {
     await cacheService.delete(`user:${userId}`);
     await cacheService.delete(`auth:${userId}`);
     logger.info('User account deleted', { userId });
+    await auditService.record({ action: AuditAction.ACCOUNT_DELETE, userId, ...context });
   }
 }
 

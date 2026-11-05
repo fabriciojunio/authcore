@@ -116,7 +116,7 @@ describe('AuthController', () => {
         respostaEspia().res
       );
 
-      expect(authService.login).toHaveBeenCalledWith({}, '203.0.113.7');
+      expect(authService.login).toHaveBeenCalledWith({}, '203.0.113.7', undefined);
     });
 
     it('should fall back to the socket address when the proxy gave none', async () => {
@@ -125,7 +125,7 @@ describe('AuthController', () => {
         respostaEspia().res
       );
 
-      expect(authService.login).toHaveBeenCalledWith({}, '198.51.100.4');
+      expect(authService.login).toHaveBeenCalledWith({}, '198.51.100.4', undefined);
     });
 
     /**
@@ -136,7 +136,7 @@ describe('AuthController', () => {
     it('should use a placeholder rather than an empty key when there is no address', async () => {
       await controller.login(req({ body: {}, socket: {} }), respostaEspia().res);
 
-      expect(authService.login).toHaveBeenCalledWith({}, 'unknown');
+      expect(authService.login).toHaveBeenCalledWith({}, 'unknown', undefined);
     });
   });
 
@@ -155,7 +155,7 @@ describe('AuthController', () => {
         respostaEspia().res
       );
 
-      expect(authService.refresh).toHaveBeenCalledWith('do-cookie');
+      expect(authService.refresh).toHaveBeenCalledWith('do-cookie', expect.objectContaining({}));
     });
 
     it('should accept the body when there is no cookie (native clients)', async () => {
@@ -164,13 +164,13 @@ describe('AuthController', () => {
         respostaEspia().res
       );
 
-      expect(authService.refresh).toHaveBeenCalledWith('do-corpo');
+      expect(authService.refresh).toHaveBeenCalledWith('do-corpo', expect.objectContaining({}));
     });
 
     it('should hand an empty string to the service when neither is present', async () => {
       await controller.refresh(req({ cookies: {}, body: {} }), respostaEspia().res);
 
-      expect(authService.refresh).toHaveBeenCalledWith('');
+      expect(authService.refresh).toHaveBeenCalledWith('', expect.objectContaining({}));
     });
 
     it('should rotate the cookie with the newly issued token', async () => {
@@ -194,7 +194,7 @@ describe('AuthController', () => {
         resposta.res
       );
 
-      expect(authService.logout).toHaveBeenCalledWith('u-1', 'r');
+      expect(authService.logout).toHaveBeenCalledWith('u-1', 'r', expect.objectContaining({}));
       expect(resposta.clearCookie).toHaveBeenCalledWith('refreshToken', {
         path: '/api/v1/auth/refresh',
       });
@@ -264,7 +264,7 @@ describe('UserController', () => {
 
       await controller.deleteAccount(requisicaoDe(), respostaEspia().res);
 
-      expect(userService.deleteAccount).toHaveBeenCalledWith('u-1');
+      expect(userService.deleteAccount).toHaveBeenCalledWith('u-1', expect.objectContaining({}));
     });
 
     it('should read the target id from the path and the identity from the token', async () => {
@@ -372,7 +372,7 @@ describe('PasskeyController', () => {
       resposta.res,
     );
 
-    expect(passkeyService.verifyRegistration).toHaveBeenCalledWith('u-1', { id: 'abc' }, 'Notebook');
+    expect(passkeyService.verifyRegistration).toHaveBeenCalledWith('u-1', { id: 'abc' }, 'Notebook', expect.objectContaining({}));
     expect(resposta.status).toHaveBeenCalledWith(HttpStatus.CREATED);
   });
 
@@ -399,7 +399,7 @@ describe('PasskeyController', () => {
       resposta.res,
     );
 
-    expect(passkeyService.verifyAuthentication).toHaveBeenCalledWith('f-1', { id: 'abc' }, '203.0.113.7');
+    expect(passkeyService.verifyAuthentication).toHaveBeenCalledWith('f-1', { id: 'abc' }, '203.0.113.7', undefined);
     const [nome, valor, opcoes] = resposta.cookie.mock.calls[0]!;
     expect(nome).toBe('refreshToken');
     expect(valor).toBe('renovacao');
@@ -418,7 +418,7 @@ describe('PasskeyController', () => {
     await controller.remove(req({ user: usuarioLogado, params: { id: 'pk-1' } }), remocao.res);
 
     expect(passkeyService.list).toHaveBeenCalledWith('u-1');
-    expect(passkeyService.remove).toHaveBeenCalledWith('u-1', 'pk-1');
+    expect(passkeyService.remove).toHaveBeenCalledWith('u-1', 'pk-1', expect.objectContaining({}));
     expect(remocao.status).toHaveBeenCalledWith(HttpStatus.NO_CONTENT);
     expect(remocao.send).toHaveBeenCalled();
   });

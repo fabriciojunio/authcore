@@ -49,6 +49,23 @@ jobs:
         with:
           scan-args: --recursive ./
 
+  semgrep:
+    name: Análise estática (Semgrep)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # Segunda opinião ao lado do CodeQL: as regras são outras e pegam outras
+      # coisas (foi o Semgrep que achou a tag curta do AES-GCM).
+      - name: Varrer com os conjuntos públicos
+        run: |
+          pipx run --spec semgrep==1.181.0 semgrep scan --metrics=off --error \
+            --config p/typescript --config p/nodejs --config p/react --config p/java \
+            --config p/owasp-top-ten --config p/secrets --config p/security-audit \
+            --exclude node_modules --exclude dist --exclude coverage --exclude target .
+
   codeql:
     name: Análise estática (CodeQL)
     runs-on: ubuntu-latest
