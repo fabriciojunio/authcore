@@ -102,6 +102,17 @@ O detalhe está no [modelo de ameaças](docs/seguranca/modelo-de-ameacas.md), no
 [checklist OWASP ASVS 5.0](docs/seguranca/asvs.md) e no [SECURITY.md](SECURITY.md), que também diz
 como relatar uma falha.
 
+### Teste de intrusão
+
+O [relatório de novembro de 2026](docs/seguranca/pentest-2026-11.md) é um teste de caixa branca
+contra a própria API. Nenhum ataque conseguiu autenticar, subir de privilégio ou ler dado de outro
+usuário; saíram quatro achados de borda, três deles de enumeração de contas. Cada ataque tem um
+teste que o reproduz, em `backend/tests/pentest/`:
+
+```bash
+cd backend && npx jest tests/pentest --verbose
+```
+
 ## Como rodar
 
 Pré-requisitos: Docker com Compose e Node.js 22.

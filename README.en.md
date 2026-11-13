@@ -105,6 +105,17 @@ Details are in the [threat model](docs/seguranca/modelo-de-ameacas.en.md), the
 [OWASP ASVS 5.0 checklist](docs/seguranca/asvs.en.md) and [SECURITY.en.md](SECURITY.en.md), which also
 explains how to report a vulnerability.
 
+### Penetration test
+
+The [November 2026 report](docs/seguranca/pentest-2026-11.en.md) is a white box test against the API
+itself. No attack managed to authenticate, escalate privilege or read another user's data; four edge
+findings came out, three of them account enumeration. Every attack has a test that reproduces it, in
+`backend/tests/pentest/`:
+
+```bash
+cd backend && npx jest tests/pentest --verbose
+```
+
 ## Running it
 
 Requirements: Docker with Compose and Node.js 22.
