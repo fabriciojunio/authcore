@@ -15,9 +15,9 @@ const schema = z.object({
 type FormData = z.infer<typeof schema>
 
 const stats = [
-  { n: '2.4k',  l: 'usuários ativos' },
-  { n: '99.9%', l: 'uptime mensal' },
-  { n: '<50ms', l: 'latência ws' },
+  { n: '80%',  l: 'cobertura mínima no CI' },
+  { n: 'TOTP', l: 'segundo fator' },
+  { n: 'RBAC', l: 'permissão por perfil' },
 ]
 
 export default function LoginPage() {
@@ -79,7 +79,7 @@ export default function LoginPage() {
         <div className={styles.formWrap}>
           <div className={styles.liveRow}>
             <div className={styles.liveDot} />
-            <span className={styles.liveTxt}>Sistema operacional</span>
+            <span className={styles.liveTxt}>Ambiente de demonstração</span>
           </div>
 
           {error && (
