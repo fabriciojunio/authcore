@@ -20,14 +20,14 @@ means one part of the chapter is covered and another is not, and the missing par
 | V10 OAuth and OIDC | Not applicable today | AuthCore issues its own tokens. It becomes applicable when Keycloak comes in. |
 | V11 Cryptography | Meets | TOTP secret with AES-256-GCM, key by HKDF, random IV, column as authenticated data (`fieldCipher.test.ts`). No automated key rotation. |
 | V12 Secure communication | Depends on deployment | HSTS on the front end; database TLS is configurable (`DB_SSL`). The code does not force TLS between API and database. |
-| V13 Configuration | Partial | Variables validated with Zod at startup, secrets with a minimum length, images pinned by digest, containers without root and with `no-new-privileges`. The front-end one is tested in CI with a read-only file system; the API one still runs with `read_only: false` in compose. |
+| V13 Configuration | Partial | Variables validated with Zod at startup, secrets with a minimum length, images pinned by digest, containers without root and with `no-new-privileges`. The front-end one is tested in CI with a read-only file system; the API one runs read-only and without capabilities in compose. |
 | V14 Data protection | Partial | Email out of logs, sensitive fields out of responses. Missing: soft delete does not erase data, there is no retention policy. |
 | V15 Secure coding and architecture | Meets | CodeQL `security-extended`, OSV-Scanner, gitleaks, `npm audit`, Dependabot with a 7-day cooldown, actions by SHA. Acceptances with deadlines in SECURITY.en.md. |
-| V16 Logging and error handling | Partial | JSON with `requestId`, authentication events logged, generic error to the client. Missing: logs off the server and alerting. |
+| V16 Logging and error handling | Partial | JSON on stdout with `correlationId` and `traceId`, redaction at any depth checked on the compiled API, a metric and a tested alert per security event. Missing: a log destination the server itself cannot delete, which belongs to whoever deploys. |
 | V17 WebRTC | Not applicable | |
 
 ## What comes first
 
-By risk: password policy and breached-password check (V6), logs off the server (V16), access token
+By risk: password policy and breached-password check (V6), an immutable log destination (V16), access token
 out of `sessionStorage` (V3). All three touch the contract with the front end or the infrastructure,
 which is why they did not go in with this round of code fixes.

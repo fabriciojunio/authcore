@@ -23,11 +23,11 @@ quer dizer que uma parte do capítulo está coberta e outra não, e a parte que 
 | V13 Configuração | Parcial | Variáveis validadas com Zod na subida, segredos com tamanho mínimo, imagens fixadas por digest, contêineres sem root e com `no-new-privileges`. O do front é testado no CI com sistema de arquivos somente leitura; o da API ainda sobe com `read_only: false` no compose. |
 | V14 Proteção de dados | Parcial | E-mail fora dos logs, campos sensíveis fora das respostas. Falta: exclusão lógica não apaga dado, não há política de retenção. |
 | V15 Código e arquitetura | Atende | CodeQL `security-extended`, OSV-Scanner, gitleaks, `npm audit`, Dependabot com espera de 7 dias, actions por SHA. Aceites com prazo no SECURITY.md. |
-| V16 Logs e erros | Parcial | JSON com `requestId`, eventos de autenticação registrados, erro genérico para o cliente. Falta: log fora do servidor e alerta. |
+| V16 Logs e erros | Parcial | JSON no stdout com `correlationId` e `traceId`, redação em qualquer profundidade conferida na API compilada, métrica e alerta por evento de segurança com teste. Falta: um destino de log que o próprio servidor não consiga apagar, que é de quem publica. |
 | V17 WebRTC | Não se aplica | |
 
 ## O que vem primeiro
 
-Pela ordem de risco: política de senha e checagem de senha vazada (V6), log fora do servidor (V16),
+Pela ordem de risco: política de senha e checagem de senha vazada (V6), destino de log imutável (V16),
 access token fora do `sessionStorage` (V3). Os três mexem em contrato com o front ou em
 infraestrutura, por isso não entraram junto com as correções de código desta rodada.

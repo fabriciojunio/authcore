@@ -1,0 +1,30 @@
+PASS tests/pentest/http-controles.test.ts (15.125 s)
+  AuthCore, teste de intrusão: controles que seguram
+    √ recusa token sem assinatura (alg: none) (110 ms)
+    √ recusa token assinado com segredo do atacante (27 ms)
+    √ recusa o refresh token no lugar do access token (confusão de tipo) (10 ms)
+    √ recusa token com emissor ou público trocado (18 ms)
+    √ recusa o papel adulterado no token, e o papel vale o do banco (16 ms)
+    √ ignora campos extras no PATCH de perfil (mass assignment) (106 ms)
+    √ não é poluído por __proto__ no corpo JSON (9 ms)
+    √ barra requisição com cookie e origem não permitida (CSRF) (11 ms)
+    √ recusa corpo acima de 10 KB sem processá-lo (12 ms)
+    √ nega acesso sem token e não entrega detalhe interno no erro (9 ms)
+    √ serve os cabeçalhos de segurança e esconde a tecnologia (9 ms)
+    reteste dos achados na borda HTTP
+      √ AUTHCORE-004: erro do cliente no corpo responde 413 e 400, sem erro de servidor no log (34 ms)
+
+PASS tests/pentest/achados.test.ts (16.559 s)
+  AuthCore, teste de intrusão: reteste dos achados
+    √ AUTHCORE-001: o cadastro gasta o mesmo tempo com e-mail novo e com e-mail já cadastrado (4200 ms)
+    √ AUTHCORE-003: conta bloqueada responde igual a e-mail inexistente, com o mesmo custo (1226 ms)
+    AUTHCORE-002: código TOTP de uso único
+      √ o mesmo código não entra duas vezes (35 ms)
+      √ código do passo anterior não entra depois de usado o atual (3 ms)
+      √ código errado nem chega a consumir passo (3 ms)
+
+Test Suites: 2 passed, 2 total
+Tests:       17 passed, 17 total
+Snapshots:   0 total
+Time:        17.659 s
+Ran all test suites matching /tests\\pentest/i.

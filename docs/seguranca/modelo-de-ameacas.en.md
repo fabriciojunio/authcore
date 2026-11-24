@@ -30,7 +30,8 @@ data (name, email, phone), products and images.
 | Guessing a password | bcrypt cost 12; 10 login attempts per 15 min per IP; account locked 15 min after 5 failures | `user.entity.ts`, `security.middleware.ts`, `auth.service.test.ts` |
 | Forged token | HS256 with a fixed algorithm on verification, `iss`, `aud` and token type checked; 64+ character secret validated at startup | `token.service.ts`, `token.service.test.ts` |
 | Stealing the TOTP secret from the database | secret encrypted with AES-256-GCM; the database alone cannot generate a code | `fieldCipher.ts`, Postgres test in `session.postgres.test.ts` |
-| Account enumeration | same message at sign-up for new or existing email; dummy comparison at login | `auth.service.test.ts` |
+| Account enumeration | same message and same cost at sign-up for new or existing email and at login for unknown or locked accounts; `EnumeracaoDeContas` alert | `auth.service.test.ts`, `achados.test.ts`, `regras.teste.yml` |
+| Reused TOTP code | each step counts once, by a conditional `UPDATE` in the database | `achados.test.ts`, `session.postgres.test.ts` |
 | Passkey phishing | the signature covers the origin and the RP hash; a response collected on another domain is refused | `passkey.service.test.ts` |
 | Assertion replay | single-use challenge read and deleted with `GETDEL`, valid for 5 min | `passkey.service.test.ts`, `passkey.postgres.test.ts` |
 | Cloned authenticator | a counter that does not move forward is refused; the `UPDATE` only succeeds if the counter read is still the one in the database | `passkey.service.test.ts` |
@@ -54,9 +55,11 @@ breached-password lists. It is listed as pending in the ASVS checklist.
 Login, failed login, logout, password change and suspected refresh reuse go to the JSON log with user
 id, IP and `requestId`. The email no longer goes into the sign-up log.
 
-What is missing, and known to be missing: the log stays in the container's file and console. There
-is no shipping to a destination the server itself cannot delete, and no alerting. For a real system
-this would be the first item after what is here.
+Each event is also a metric, counted before the audit write, so an attack that takes the trail down is
+still seen, and the failed write has its own alert.
+
+What is missing, and known to be missing: a log destination the server itself cannot delete. Logs go to
+stdout for the platform to collect, and that destination belongs to whoever deploys.
 
 ### Information disclosure (I)
 
