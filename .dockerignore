@@ -1,0 +1,17 @@
+# O contexto é a raiz do workspace. Segredo, dado e artefato local não entram nem
+# no contexto, para um COPY futuro mais largo não os levar para a imagem.
+.git
+.github
+**/node_modules
+**/dist
+**/coverage
+**/logs
+**/uploads
+**/.env
+**/.env.*
+**/*.log
+**/tests
+docs
+identidade
+infra
+observabilidade
