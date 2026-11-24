@@ -1,4 +1,3 @@
-import crypto from 'crypto';
 import { Express, Request, Response, NextFunction } from 'express';
 import helmet from 'helmet';
 import cors from 'cors';
@@ -9,8 +8,15 @@ import compression from 'compression';
 import { config } from '@config/app.config';
 import { logger } from '@config/logger';
 import { AppError, HttpStatus, RateLimitError } from '@errors/AppError';
+import { countSecurityEvent } from '@observability/metrics';
 
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
+
+// O balanceador pergunta a cada poucos segundos, sempre dos mesmos endereços: dentro do limite
+// ele levaria 429 e derrubaria instância boa. O /ready guarda o resultado por 2 s, então
+// ficar fora do limite não deixa ninguém martelar o banco por aqui.
+const PROBES = new Set(['/health/live', '/health/ready']);
+const isProbe = (req: Request): boolean => PROBES.has(req.path);
 
 function requestOrigin(req: Request): string | undefined {
   const origin = req.headers.origin;
@@ -34,6 +40,7 @@ export function csrfProtection(req: Request, _res: Response, next: NextFunction)
   if (SAFE_METHODS.has(req.method) || !req.headers.cookie) return next();
   const origin = requestOrigin(req);
   if (origin && config.cors.allowedOrigins.includes(origin)) return next();
+  countSecurityEvent('csrf_rejected');
   logger.warn('Blocked cookie request without an allowed origin', { origin: origin ?? 'missing', path: req.path });
   next(new AppError('Request origin not allowed', HttpStatus.FORBIDDEN, 'CSRF_ORIGIN_REJECTED'));
 }
@@ -84,6 +91,7 @@ export function applySecurityMiddleware(app: Express): void {
           // Denied without an error: throwing here made the API answer 500 to every request from
           // an unknown origin. With no CORS headers the browser cannot read the response, and a
           // state-changing request that carries cookies is refused by csrfProtection with 403.
+          countSecurityEvent('cors_rejected');
           logger.warn('Blocked CORS request from unauthorized origin', { origin });
           callback(null, false);
         }
@@ -118,8 +126,10 @@ export function applySecurityMiddleware(app: Express): void {
       standardHeaders: true,
       legacyHeaders: false,
       skipSuccessfulRequests: false,
+      skip: isProbe,
       keyGenerator: (req) => req.ip ?? 'unknown',
       handler: (_req: Request, _res: Response, next: NextFunction) => {
+        countSecurityEvent('rate_limited', 'global');
         next(new RateLimitError());
       },
     })
@@ -130,17 +140,10 @@ export function applySecurityMiddleware(app: Express): void {
     slowDown({
       windowMs: 15 * 60 * 1000,
       delayAfter: 50,
+      skip: isProbe,
       delayMs: (used) => (used - 50) * 100,
     })
   );
-
-  // ─── Request ID tracking ─────────────────────────────────────────
-  app.use((req: Request, res: Response, next: NextFunction) => {
-    const requestId = (req.headers['x-request-id'] as string) ??
-                      crypto.randomBytes(16).toString('hex');
-    res.setHeader('X-Request-ID', requestId);
-    next();
-  });
 
   // ─── Remove sensitive response headers ──────────────────────────
   app.use((_req: Request, res: Response, next: NextFunction) => {
@@ -158,6 +161,7 @@ export function authRateLimiter(): ReturnType<typeof rateLimit> {
     legacyHeaders: false,
     keyGenerator: (req) => req.ip ?? 'unknown',
     handler: (_req: Request, _res: Response, next: NextFunction) => {
+      countSecurityEvent('rate_limited', 'auth');
       next(new RateLimitError('Too many authentication attempts'));
     },
   });

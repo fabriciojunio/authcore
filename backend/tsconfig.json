@@ -32,6 +32,7 @@
       "@validators/*": ["src/validators/*"],
       "@routes/*": ["src/routes/*"],
       "@errors/*": ["src/errors/*"],
+      "@observability/*": ["src/observability/*"],
       "@types/*": ["src/types/*"]
     }
   },

@@ -7,6 +7,8 @@ import swaggerUi from 'swagger-ui-express';
 import { config } from '@config/app.config';
 import { applySecurityMiddleware, csrfProtection } from '@middlewares/security.middleware';
 import { requestLogger } from '@middlewares/logger.middleware';
+import { requestContext } from '@middlewares/context.middleware';
+import { httpMetrics } from '@observability/metrics';
 import { errorHandler, notFoundHandler } from '@middlewares/error.middleware';
 import { sanitizeBody } from '@middlewares/validation.middleware';
 import { swaggerSpec } from '@config/swagger';
@@ -23,6 +25,12 @@ export function createApp(): express.Application {
   // ─── Trust proxy (needed for rate limiting behind reverse proxy) ─
   app.set('trust proxy', 1);
 
+  // ─── Contexto, métrica e log antes da segurança: a recusa (429, 403, corpo
+  // inválido) também precisa ser contada e registrada ─────────────────
+  app.use(requestContext);
+  app.use(httpMetrics);
+  app.use(requestLogger);
+
   // ─── Security middleware ─────────────────────────────────────────
   applySecurityMiddleware(app);
 
@@ -34,9 +42,6 @@ export function createApp(): express.Application {
 
   // ─── Global sanitization ─────────────────────────────────────────
   app.use(sanitizeBody);
-
-  // ─── Request logging ─────────────────────────────────────────────
-  app.use(requestLogger);
 
   // ─── API Documentation (development only) ────────────────────────
   if (config.node.env !== 'production') {
