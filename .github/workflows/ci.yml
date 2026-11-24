@@ -129,6 +129,19 @@ jobs:
           SMTP_PASSWORD: test
           ALLOWED_ORIGINS: http://localhost:3000
 
+      # A API compilada, em modo produção, com coletor de trace: o que sai em log, métrica e span.
+      - name: Build the API for the smoke test
+        run: npm run build --workspace=backend
+
+      - name: Telemetry smoke test
+        run: node backend/tests/smoke/telemetria.cjs
+        env:
+          DB_HOST: localhost
+          DB_PORT: 5432
+          DB_NAME: enterprise_test
+          DB_USER: test_user
+          DB_PASSWORD: test_password
+
       - name: Frontend tests
         run: npm test --workspace=frontend
 
@@ -259,6 +272,23 @@ jobs:
 
       - name: Prova ponta a ponta
         run: bash identidade/provar.sh
+
+  # Alertas de serviço e de detecção: sintaxe e o comportamento de cada regra.
+  alertas:
+    name: Alert rules (promtool)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Check and test the rules
+        run: |
+          rodar() { docker run --rm --entrypoint promtool -v "$PWD/observabilidade:/obs:ro" --workdir /obs prom/prometheus:v3.16.0 "$@"; }
+          rodar check rules regras.yml
+          rodar test rules regras.teste.yml
 
   # Auditoria de seguranca das dependencias
   security:

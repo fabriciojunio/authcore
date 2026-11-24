@@ -1,0 +1,103 @@
+# Alertas do AuthCore. Dois grupos: o serviço está bem, e alguém está atacando.
+# O que fazer em cada um está em docs/operacao.md, pela âncora de `runbook`.
+
+groups:
+  - name: servico
+    rules:
+      - record: authcore:erros:razao5m
+        expr: |
+          sum(rate(authcore_http_requests_total{status=~"5..",route!~"/health.*"}[5m]))
+          / sum(rate(authcore_http_requests_total{route!~"/health.*"}[5m]))
+      - record: authcore:erros:razao1h
+        expr: |
+          sum(rate(authcore_http_requests_total{status=~"5..",route!~"/health.*"}[1h]))
+          / sum(rate(authcore_http_requests_total{route!~"/health.*"}[1h]))
+
+      # SLO de 99,5%. Queimar 14,4x gasta 2% do orçamento do mês em uma hora. As
+      # duas janelas evitam acordar alguém por um pico que já passou.
+      - alert: OrcamentoDeErroQueimando
+        expr: authcore:erros:razao5m > 14.4 * 0.005 and authcore:erros:razao1h > 14.4 * 0.005
+        for: 2m
+        labels: { severidade: critica }
+        annotations:
+          resumo: "{{ $value | humanizePercentage }} das respostas com erro do servidor"
+          runbook: docs/operacao.md#erro-5xx
+
+      - alert: LoginLento
+        expr: |
+          histogram_quantile(0.95, sum by (le) (
+            rate(authcore_http_request_duration_seconds_bucket{route="/api/v1/auth/login"}[10m])
+          )) > 1.5
+        for: 10m
+        labels: { severidade: atencao }
+        annotations:
+          resumo: "p95 do login em {{ $value | humanizeDuration }}"
+          runbook: docs/operacao.md#login-lento
+
+      - alert: ApiForaDoAr
+        expr: up{job="authcore"} == 0
+        for: 2m
+        labels: { severidade: critica }
+        annotations:
+          resumo: "a API não responde à coleta de métricas"
+          runbook: docs/operacao.md#api-fora-do-ar
+
+  - name: deteccao
+    rules:
+      # Refresh usado duas vezes: ou alguém roubou o token, ou o cliente tem
+      # defeito. As sessões da conta já foram revogadas na hora.
+      - alert: RefreshTokenReutilizado
+        expr: increase(authcore_security_events_total{event="auth.refresh_reuse"}[10m]) > 0
+        labels: { severidade: critica, mitre: T1550.001 }
+        annotations:
+          resumo: "refresh token reutilizado: possível roubo de sessão"
+          runbook: docs/operacao.md#refresh-reutilizado
+
+      # Muita falha e quase nenhum acerto. A razão separa ataque de segunda-feira
+      # de manhã, quando todo mundo erra a senha e depois acerta.
+      - alert: PulverizacaoDeSenha
+        expr: |
+          sum(increase(authcore_security_events_total{event="auth.login_failed"}[10m])) > 50
+          and
+          sum(increase(authcore_security_events_total{event="auth.login_failed"}[10m]))
+            > 9 * (sum(increase(authcore_security_events_total{event="auth.login"}[10m])) or vector(0))
+        for: 2m
+        labels: { severidade: critica, mitre: T1110.003 }
+        annotations:
+          resumo: "{{ $value | humanize }} falhas de login em 10 min, quase sem acerto"
+          runbook: docs/operacao.md#forca-bruta
+
+      - alert: EnumeracaoDeContas
+        expr: |
+          sum(increase(authcore_security_events_total{event="auth.login_failed",reason="unknown_user"}[10m])) > 30
+          and
+          sum(increase(authcore_security_events_total{event="auth.login_failed",reason="unknown_user"}[10m]))
+            > 0.8 * sum(increase(authcore_security_events_total{event="auth.login_failed"}[10m]))
+        labels: { severidade: atencao, mitre: T1589.002 }
+        annotations:
+          resumo: "lista de e-mails sendo testada: a maioria das falhas é de conta inexistente"
+          runbook: docs/operacao.md#enumeracao
+
+      # O atacante já tem a senha e está no segundo fator.
+      - alert: AtaqueAoSegundoFator
+        expr: |
+          sum(increase(authcore_security_events_total{event="auth.login_failed",reason=~"bad_totp|totp_replay"}[10m])) > 10
+        labels: { severidade: critica, mitre: T1111 }
+        annotations:
+          resumo: "{{ $value | humanize }} códigos de segundo fator recusados em 10 min"
+          runbook: docs/operacao.md#segundo-fator
+
+      - alert: AcessoNegadoEmMassa
+        expr: sum(increase(authcore_security_events_total{event="access_denied"}[10m])) > 30
+        labels: { severidade: atencao, mitre: T1078 }
+        annotations:
+          resumo: "conta autenticada tentando rotas acima do papel dela"
+          runbook: docs/operacao.md#acesso-negado
+
+      # Sem trilha não há investigação. É o que um invasor tentaria desligar.
+      - alert: TrilhaDeAuditoriaFalhando
+        expr: increase(authcore_audit_write_failures_total[5m]) > 0
+        labels: { severidade: critica, mitre: T1562.008 }
+        annotations:
+          resumo: "eventos de segurança sem registro na trilha"
+          runbook: docs/operacao.md#trilha-falhando
