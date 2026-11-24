@@ -20,7 +20,7 @@
     "docker:build": "docker-compose build"
   },
   "devDependencies": {
-    "concurrently": "^8.2.2"
+    "concurrently": "^10.0.6"
   },
   "overrides": {
     "follow-redirects": "1.16.2"
