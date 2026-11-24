@@ -1,62 +1,75 @@
 import { Router, Request, Response } from 'express';
 import { AppDataSource } from '@config/database';
 import { getRedisClient } from '@config/redis';
-import { config } from '@config/app.config';
 import { logger } from '@config/logger';
 
 const router = Router();
 
-interface HealthStatus {
-  status: 'healthy' | 'degraded' | 'unhealthy';
-  timestamp: string;
-  version: string;
-  environment: string;
-  uptime: number;
-  services: {
-    database: 'up' | 'down';
-    cache: 'up' | 'down';
-  };
+type State = 'up' | 'down';
+
+interface Dependencies {
+  database: State;
+  cache: State;
 }
 
+const CHECK_TIMEOUT_MS = 2000;
+const CACHE_MS = 2000;
+
+async function probe(name: string, check: () => Promise<unknown>): Promise<State> {
+  let timer: NodeJS.Timeout | undefined;
+  try {
+    const timeout = new Promise<never>((_resolve, reject) => {
+      timer = setTimeout(() => reject(new Error('timeout')), CHECK_TIMEOUT_MS);
+    });
+    await Promise.race([Promise.resolve().then(check), timeout]);
+    return 'up';
+  } catch (error) {
+    logger.warn(`Health check: ${name} unreachable`, { error });
+    return 'down';
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+let cached: { at: number; result: Promise<Dependencies> } | undefined;
+
+// A sonda fica fora do limite de requisições, então o resultado vale por 2 s e a
+// consulta em andamento é compartilhada: mil chamadas fazem uma consulta só.
+function checkDependencies(): Promise<Dependencies> {
+  const now = Date.now();
+  if (!cached || now - cached.at > CACHE_MS) {
+    const result = Promise.all([
+      probe('database', () => AppDataSource.query('SELECT 1')),
+      probe('cache', () => getRedisClient().ping()),
+    ]).then(([database, cache]) => ({ database, cache }));
+    cached = { at: now, result };
+  }
+  return cached.result;
+}
+
+export function resetHealthCache(): void {
+  cached = undefined;
+}
+
+// Público, então diz só o necessário: versão, ambiente e tempo no ar ajudam
+// quem procura versão vulnerável e não ajudam quem usa.
 router.get('/', async (_req: Request, res: Response): Promise<void> => {
-  const services = {
-    database: 'down' as 'up' | 'down',
-    cache: 'down' as 'up' | 'down',
-  };
-
-  try {
-    await AppDataSource.query('SELECT 1');
-    services.database = 'up';
-  } catch (error) {
-    logger.error('Health check: Database unreachable', { error });
-  }
-
-  try {
-    const redis = getRedisClient();
-    await redis.ping();
-    services.cache = 'up';
-  } catch (error) {
-    logger.warn('Health check: Cache unreachable', { error });
-  }
-
-  const allUp = Object.values(services).every((s) => s === 'up');
-  const anyUp = Object.values(services).some((s) => s === 'up');
-
-  const health: HealthStatus = {
-    status: allUp ? 'healthy' : anyUp ? 'degraded' : 'unhealthy',
-    timestamp: new Date().toISOString(),
-    version: config.app.version,
-    environment: config.node.env,
-    uptime: Math.floor(process.uptime()),
-    services,
-  };
-
-  const statusCode = allUp ? 200 : anyUp ? 207 : 503;
-  res.status(statusCode).json(health);
+  const services = await checkDependencies();
+  const up = Object.values(services).filter((state) => state === 'up').length;
+  const status = up === 2 ? 'healthy' : up === 1 ? 'degraded' : 'unhealthy';
+  const statusCode = up === 2 ? 200 : up === 1 ? 207 : 503;
+  res.status(statusCode).json({ status, timestamp: new Date().toISOString(), services });
 });
 
-router.get('/ready', (_req: Request, res: Response): void => {
-  res.status(200).json({ status: 'ready', timestamp: new Date().toISOString() });
+// Pronto é poder atender: sem o banco nenhuma rota responde. Sem o Redis a API
+// degrada (a revogação ainda é conferida no banco), então não sai do ar por isso.
+router.get('/ready', async (_req: Request, res: Response): Promise<void> => {
+  const { database } = await checkDependencies();
+  const ready = database === 'up';
+  res.status(ready ? 200 : 503).json({
+    status: ready ? 'ready' : 'not_ready',
+    timestamp: new Date().toISOString(),
+  });
 });
 
 router.get('/live', (_req: Request, res: Response): void => {
