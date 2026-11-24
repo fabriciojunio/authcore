@@ -177,8 +177,11 @@ describe('Auth Routes Integration', () => {
 
   describe('404 handling', () => {
     it('should return 404 for unknown routes', async () => {
-      const res = await request(app).get('/api/v1/nonexistent');
+      const res = await request(app).get('/api/v1/nonexistent?token=segredo');
       expect(res.status).toBe(404);
+      // O id do corpo é o do cabeçalho: com ele se acha a linha no log.
+      expect(res.body.error.requestId).toBe(res.headers['x-request-id']);
+      expect(JSON.stringify(res.body)).not.toContain('segredo');
       expect(res.body.success).toBe(false);
     });
   });

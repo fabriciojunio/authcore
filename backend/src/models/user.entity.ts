@@ -68,6 +68,11 @@ export class User {
   @Exclude()
   twoFactorSecret?: string;
 
+  // Último passo TOTP aceito: o código é de uso único. Inteiro de 32 bits serve até 4009.
+  @Column({ nullable: true, name: 'last_totp_step', type: 'integer', select: false })
+  @Exclude()
+  lastTotpStep?: number | null;
+
   @Column({ nullable: true, name: 'email_verified_at', type: 'timestamp' })
   emailVerifiedAt?: Date;
 

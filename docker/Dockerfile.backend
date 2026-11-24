@@ -55,6 +55,12 @@ COPY --from=deps --chown=appuser:nodejs /app/node_modules ./node_modules
 COPY --from=builder --chown=appuser:nodejs /app/backend/dist ./dist
 COPY --chown=appuser:nodejs backend/package.json ./
 
+# Autoridades do RDS em sa-east-1. Sem elas o Node recusa o TLS do banco (a
+# conferencia do certificado fica ligada), e desligar a conferencia nao e opcao.
+# SHA-256 c2f9255eadfa939dd6f965ede75d8e0d4168c9cbb7ca1e7baa9bff6d5e2c96e1
+COPY --chown=root:root --chmod=0444 docker/rds-sa-east-1.pem ./rds-ca.pem
+ENV NODE_EXTRA_CA_CERTS=/app/rds-ca.pem
+
 RUN mkdir -p logs uploads && chown -R appuser:nodejs logs uploads
 
 USER appuser

@@ -41,6 +41,7 @@ const configSchema = z.object({
     port: z.coerce.number().default(6379),
     password: z.string().optional(),
     ttl: z.coerce.number().default(3600),
+    tls: envBoolean,
   }),
 
   rateLimit: z.object({
@@ -85,6 +86,12 @@ const configSchema = z.object({
     level: z.enum(['error', 'warn', 'info', 'debug']).default('info'),
     dir: z.string().default('./logs'),
   }),
+
+  // Porta própria, que a borda não conhece. Fora de contêiner, só o próprio host alcança.
+  metrics: z.object({
+    host: z.string().default('127.0.0.1'),
+    port: z.coerce.number().min(1024).max(65535).default(9464),
+  }),
 });
 
 type AppConfig = z.infer<typeof configSchema>;
@@ -125,6 +132,7 @@ function loadConfig(): AppConfig {
       port: process.env['REDIS_PORT'],
       password: process.env['REDIS_PASSWORD'],
       ttl: process.env['REDIS_TTL'],
+      tls: process.env['REDIS_TLS'],
     },
     rateLimit: {
       windowMs: process.env['RATE_LIMIT_WINDOW_MS'],
@@ -155,6 +163,10 @@ function loadConfig(): AppConfig {
     logging: {
       level: process.env['LOG_LEVEL'],
       dir: process.env['LOG_DIR'],
+    },
+    metrics: {
+      host: process.env['METRICS_HOST'],
+      port: process.env['METRICS_PORT'],
     },
   });
 

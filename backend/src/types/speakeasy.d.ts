@@ -4,6 +4,7 @@ declare module 'speakeasy' {
     encoding: 'base32' | 'ascii' | 'hex';
     token: string;
     window?: number;
+    time?: number;
   }
 
   interface TOTPGenerateOptions {
@@ -31,6 +32,7 @@ declare module 'speakeasy' {
     totp: {
       (options: TOTPGenerateOptions): string;
       verify(options: TOTPVerifyOptions): boolean;
+      verifyDelta(options: TOTPVerifyOptions): { delta: number } | undefined;
     };
     generateSecret(options?: SecretOptions): SecretResult;
   }

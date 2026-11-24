@@ -20,6 +20,7 @@ const config: Config = {
     '^@validators/(.*)$': '<rootDir>/src/validators/$1',
     '^@routes/(.*)$': '<rootDir>/src/routes/$1',
     '^@errors/(.*)$': '<rootDir>/src/errors/$1',
+    '^@observability/(.*)$': '<rootDir>/src/observability/$1',
     '^@types/(.*)$': '<rootDir>/src/types/$1',
   },
   collectCoverageFrom: [

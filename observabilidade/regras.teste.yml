@@ -1,0 +1,122 @@
+# promtool test rules regras.teste.yml
+# Cada alerta tem um caso que dispara e um que não pode disparar.
+
+rule_files: [regras.yml]
+evaluation_interval: 1m
+
+tests:
+  - name: refresh reutilizado dispara na primeira vez
+    interval: 1m
+    input_series:
+      - series: 'authcore_security_events_total{event="auth.refresh_reuse",reason="none"}'
+        values: '0 0 0 1 1 1'
+    alert_rule_test:
+      - eval_time: 2m
+        alertname: RefreshTokenReutilizado
+        exp_alerts: []
+      - eval_time: 5m
+        alertname: RefreshTokenReutilizado
+        exp_alerts:
+          - exp_labels: { severidade: critica, mitre: T1550.001, event: auth.refresh_reuse, reason: none }
+            exp_annotations:
+              resumo: "refresh token reutilizado: possível roubo de sessão"
+              runbook: docs/operacao.md#refresh-reutilizado
+
+  - name: pulverização com falha alta e nenhum acerto
+    interval: 1m
+    input_series:
+      - series: 'authcore_security_events_total{event="auth.login_failed",reason="bad_password"}'
+        values: '0+20x30'
+    alert_rule_test:
+      - eval_time: 20m
+        alertname: PulverizacaoDeSenha
+        exp_alerts:
+          - exp_labels: { severidade: critica, mitre: T1110.003 }
+            exp_annotations:
+              resumo: "200 falhas de login em 10 min, quase sem acerto"
+              runbook: docs/operacao.md#forca-bruta
+
+  - name: segunda-feira de manhã não é ataque
+    interval: 1m
+    input_series:
+      - series: 'authcore_security_events_total{event="auth.login_failed",reason="bad_password"}'
+        values: '0+20x30'
+      - series: 'authcore_security_events_total{event="auth.login",reason="other"}'
+        values: '0+60x30'
+    alert_rule_test:
+      - eval_time: 20m
+        alertname: PulverizacaoDeSenha
+        exp_alerts: []
+
+  - name: enumeração quando quase toda falha é de conta inexistente
+    interval: 1m
+    input_series:
+      - series: 'authcore_security_events_total{event="auth.login_failed",reason="unknown_user"}'
+        values: '0+10x30'
+      - series: 'authcore_security_events_total{event="auth.login_failed",reason="bad_password"}'
+        values: '0+1x30'
+    alert_rule_test:
+      - eval_time: 20m
+        alertname: EnumeracaoDeContas
+        exp_alerts:
+          - exp_labels: { severidade: atencao, mitre: T1589.002 }
+            exp_annotations:
+              resumo: "lista de e-mails sendo testada: a maioria das falhas é de conta inexistente"
+              runbook: docs/operacao.md#enumeracao
+
+  - name: senha errada em conta que existe não é enumeração
+    interval: 1m
+    input_series:
+      - series: 'authcore_security_events_total{event="auth.login_failed",reason="unknown_user"}'
+        values: '0+4x30'
+      - series: 'authcore_security_events_total{event="auth.login_failed",reason="bad_password"}'
+        values: '0+10x30'
+    alert_rule_test:
+      - eval_time: 20m
+        alertname: EnumeracaoDeContas
+        exp_alerts: []
+
+  - name: trilha falhando dispara
+    interval: 1m
+    input_series:
+      - series: 'authcore_audit_write_failures_total'
+        values: '0 0 0 2 2'
+    alert_rule_test:
+      - eval_time: 2m
+        alertname: TrilhaDeAuditoriaFalhando
+        exp_alerts: []
+      - eval_time: 4m
+        alertname: TrilhaDeAuditoriaFalhando
+        exp_alerts:
+          - exp_labels: { severidade: critica, mitre: T1562.008 }
+            exp_annotations:
+              resumo: "eventos de segurança sem registro na trilha"
+              runbook: docs/operacao.md#trilha-falhando
+
+  - name: erro de servidor acima do orçamento nas duas janelas
+    interval: 1m
+    input_series:
+      - series: 'authcore_http_requests_total{method="POST",route="/api/v1/auth/login",status="500"}'
+        values: '0+10x90'
+      - series: 'authcore_http_requests_total{method="POST",route="/api/v1/auth/login",status="200"}'
+        values: '0+90x90'
+    alert_rule_test:
+      - eval_time: 80m
+        alertname: OrcamentoDeErroQueimando
+        exp_alerts:
+          - exp_labels: { severidade: critica }
+            exp_annotations:
+              resumo: "10% das respostas com erro do servidor"
+              runbook: docs/operacao.md#erro-5xx
+
+  - name: a sonda de saúde não conta no SLO
+    interval: 1m
+    input_series:
+      - series: 'authcore_http_requests_total{method="GET",route="/health/ready",status="503"}'
+        values: '0+10x90'
+      - series: 'authcore_http_requests_total{method="POST",route="/api/v1/auth/login",status="200"}'
+        values: '0+90x90'
+    alert_rule_test:
+      - eval_time: 80m
+        alertname: OrcamentoDeErroQueimando
+        exp_alerts: []

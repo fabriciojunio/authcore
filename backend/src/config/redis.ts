@@ -9,6 +9,8 @@ export async function initializeRedis(): Promise<RedisClientType> {
     socket: {
       host: config.redis.host,
       port: config.redis.port,
+      // Com TLS ligado o certificado é conferido: o padrão do Node é recusar o inválido.
+      ...(config.redis.tls ? { tls: true as const } : {}),
       connectTimeout: 5000,
       reconnectStrategy: (retries) => {
         if (retries > 10) {

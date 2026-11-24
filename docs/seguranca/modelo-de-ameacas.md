@@ -30,7 +30,8 @@ dados pessoais (nome, e-mail, telefone), produtos e imagens.
 | Adivinhar senha | bcrypt custo 12; 10 tentativas de login a cada 15 min por IP; conta bloqueada 15 min após 5 erros | `user.entity.ts`, `security.middleware.ts`, `auth.service.test.ts` |
 | Token forjado | HS256 com algoritmo fixo na verificação, `iss`, `aud` e tipo do token conferidos; segredo com 64+ caracteres validado na subida | `token.service.ts`, `token.service.test.ts` |
 | Roubo do segredo TOTP pelo banco | segredo cifrado com AES-256-GCM; o banco sozinho não gera código | `fieldCipher.ts`, teste com Postgres em `session.postgres.test.ts` |
-| Enumeração de contas | mesma mensagem no cadastro com e-mail novo ou repetido; comparação fictícia no login | `auth.service.test.ts` |
+| Enumeração de contas | mesma mensagem e mesmo custo no cadastro com e-mail novo ou repetido e no login com conta inexistente ou bloqueada; alerta `EnumeracaoDeContas` | `auth.service.test.ts`, `achados.test.ts`, `regras.teste.yml` |
+| Código TOTP reaproveitado | cada passo vale uma vez, por `UPDATE` condicional no banco | `achados.test.ts`, `session.postgres.test.ts` |
 | Phishing da passkey | a assinatura cobre a origem e o hash do RP; resposta colhida em outro domínio é recusada | `passkey.service.test.ts` |
 | Replay da asserção | desafio de uso único lido e apagado com `GETDEL`, válido por 5 min | `passkey.service.test.ts`, `passkey.postgres.test.ts` |
 | Autenticador clonado | contador que não avança é recusado; o `UPDATE` só passa se o contador lido ainda for o do banco | `passkey.service.test.ts` |
@@ -52,11 +53,12 @@ listas de senhas vazadas. Está no checklist ASVS como pendente.
 ### Repúdio (R)
 
 Login, falha de login, logout, troca de senha e suspeita de reuso de refresh vão para o log em JSON
-com id do usuário, IP e `requestId`. O e-mail não entra mais no log de cadastro.
+com id do usuário, IP e `correlationId`, para a trilha no banco e para a métrica. A métrica é contada
+antes da gravação, então um ataque que derrube a trilha ainda é visto, e a falha de gravação tem alerta
+próprio. O e-mail não entra no log.
 
-O que falta e eu sei que falta: o log fica no arquivo e no console do contêiner. Não há envio para
-um destino que o próprio servidor não consiga apagar, nem alerta. Para um sistema de verdade isso
-seria o primeiro item depois do que já está aqui.
+O que falta e eu sei que falta: um destino de log que o próprio servidor não consiga apagar. O log sai
+no stdout para a plataforma coletar, e esse destino é de quem publica.
 
 ### Vazamento de informação (I)
 

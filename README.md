@@ -16,15 +16,16 @@ O cadastro retorna uma mensagem e deixa a conta pendente; não autentica sozinho
 a ativação autônoma ainda não estão completos. O modo demonstração usa dados locais e não dá acesso
 à API.
 
-Antes de atualizar o back-end, aplique as migrações nesta ordem: a de `sessionVersion` e a
-`EncryptTwoFactorSecret`, que cifra os segredos TOTP já gravados e precisa da mesma `ENCRYPTION_KEY`
-da aplicação.
+Antes de atualizar o back-end, rode `npm run migration:run`. A `EncryptTwoFactorSecret` cifra os
+segredos TOTP já gravados e precisa da mesma `ENCRYPTION_KEY` da aplicação; a `AddLastTotpStep` cria
+a coluna do código de uso único, e sem ela o login com 2FA falha.
 
 ## Tecnologias
 
 **Back-end:** Node.js 22 · TypeScript · Express · TypeORM · PostgreSQL · Redis · Zod
 **Front-end:** React 18 · TypeScript · Vite · Zustand · React Query
 **Infraestrutura:** Docker · Nginx · GitHub Actions
+**Observabilidade:** Prometheus · OpenTelemetry · log JSON com correlação
 **Segurança:** Helmet · JWT HS256 · bcrypt · AES-256-GCM · limite de requisições · CORS · HPP
 
 ## Arquitetura
@@ -42,13 +43,18 @@ authcore/
 │   │   ├── repositories/        # acesso a dados (Repository)
 │   │   ├── routes/              # rotas com schemas Zod e Swagger
 │   │   ├── services/            # regras de negócio
-│   │   └── utils/               # cifra de campo, logger, sanitizador
+│   │   ├── observability/       # contexto, métricas e trace
+│   │   └── utils/               # cifra de campo, redação de log
 │   └── tests/
 │       ├── unit/
-│       └── integration/         # rotas por HTTP, IDOR, Postgres real
+│       ├── integration/         # rotas por HTTP, IDOR, Postgres real
+│       ├── pentest/             # cada ataque do teste de intrusão
+│       └── smoke/               # API compilada: log, métrica e trace de verdade
 ├── frontend/                    # SPA React
 ├── docker/                      # imagens, nginx e init do Postgres
-├── docs/seguranca/              # modelo de ameaças e checklist ASVS
+├── docs/                        # operação, modelo de ameaças e checklist ASVS
+├── infra/                       # AWS em OpenTofu, testada sem conta
+├── observabilidade/             # alertas de serviço e de detecção, com teste
 └── docker-compose.yml
 ```
 
@@ -67,7 +73,9 @@ authcore/
 - Rotação do refresh com detecção de reuso; refresh guardado como SHA-256
 - `sessionVersion` conferida no banco a cada requisição: logout e troca de senha revogam tudo
 - Bloqueio após 5 erros e comparação fictícia para conta inexistente
-- 2FA por TOTP no login, com o segredo cifrado no banco (AES-256-GCM, chave por HKDF)
+- 2FA por TOTP no login, com o segredo cifrado no banco (AES-256-GCM, chave por HKDF) e código de
+  uso único (RFC 6238), conferido por `UPDATE` condicional que segura requisições simultâneas
+- Mesma mensagem e mesmo custo de CPU para e-mail existente, inexistente e conta bloqueada
 - Passkeys (WebAuthn): login sem senha com biometria ou PIN do aparelho, desafio de uso único no
   Redis, origem e RP conferidos, contador que só anda para a frente e remoção restrita ao dono
 
@@ -89,9 +97,22 @@ authcore/
 
 ### Dados e infraestrutura
 - bcrypt 12; campos sensíveis fora das consultas e das respostas
-- E-mail fora dos logs; o logger troca por `[REDACTED]` senha, token, segredo, cookie e Authorization
+- E-mail fora dos logs; o logger troca por `[REDACTED]` senha, token, segredo, cookie e Authorization,
+  em qualquer profundidade, e de um erro de banco guarda só nome, mensagem e pilha
 - Contêineres sem root, imagens fixadas por digest, `no-new-privileges`
+- A API entra no banco com um usuário que só acrescenta na trilha de auditoria: quem a tomar não apaga
+  o rastro, provado contra PostgreSQL real em `infra/aws/banco/provar.sh`
+- Infraestrutura da AWS em [infra](infra/README.md): API sem rota para a internet, WAF e segredo no cofre.
+  É código testado; nada está no ar
 - Postgres com autenticação `scram-sha-256`; a API nunca fica exposta sem o Nginx na frente
+
+### Detecção
+- Métrica por evento de segurança: falha de login por motivo, refresh reutilizado, CSRF, limite, acesso
+  negado, trilha que não gravou
+- Alertas com técnica do MITRE ATT&CK para pulverização de senha, enumeração, ataque ao segundo fator e
+  roubo de sessão, cada um com teste do caso que dispara e do que não pode disparar
+- `correlationId` gerado no servidor, igual no cabeçalho, no corpo do erro e no log; `traceId` liga ao trace
+- Runbook por alerta em [docs/operacao.md](docs/operacao.md)
 
 ### Pipeline
 - CodeQL `security-extended`, OSV-Scanner, `npm audit` e gitleaks a cada push
@@ -101,6 +122,17 @@ authcore/
 O detalhe está no [modelo de ameaças](docs/seguranca/modelo-de-ameacas.md), no
 [checklist OWASP ASVS 5.0](docs/seguranca/asvs.md) e no [SECURITY.md](SECURITY.md), que também diz
 como relatar uma falha.
+
+### Teste de intrusão
+
+O [relatório de novembro de 2026](docs/seguranca/pentest-2026-11.md) é um teste de caixa branca
+contra a própria API. Nenhum ataque conseguiu autenticar, subir de privilégio ou ler dado de outro
+usuário; saíram quatro achados de borda. Os quatro foram corrigidos, e o reteste está no próprio
+relatório. Cada ataque tem um teste em `backend/tests/pentest/`:
+
+```bash
+cd backend && npx jest tests/pentest --verbose
+```
 
 ## Como rodar
 
@@ -120,6 +152,7 @@ Produção local:
 docker-compose up -d --build
 docker-compose ps
 curl http://localhost/health
+docker compose --profile observabilidade up -d    # Prometheus em http://localhost:9090
 ```
 
 ## Identidade com Keycloak e Kong
@@ -166,7 +199,7 @@ npm run test:coverage      # com cobertura
 cd backend && npm run test:watch
 ```
 
-306 testes no back-end. Doze deles sobem PostgreSQL e Redis de verdade e só rodam com
+376 testes no back-end. Catorze deles sobem PostgreSQL e Redis de verdade e só rodam com
 `AUTHCORE_POSTGRES_TEST=1`; no CI rodam sempre. A cobertura mínima exigida é 80% de linhas e 70% de
 ramos.
 
@@ -177,7 +210,7 @@ Todas estão em `backend/.env.example`. Obrigatórias em produção:
 - `JWT_ACCESS_SECRET`: 64 caracteres ou mais, aleatórios
 - `JWT_REFRESH_SECRET`: 64 caracteres ou mais, diferente do de acesso
 - `ENCRYPTION_KEY`: 32 caracteres ou mais; cifra o segredo TOTP, então trocá-la exige recifrar a coluna
-- `DB_PASSWORD` e `REDIS_PASSWORD`: senhas fortes
+- `DB_PASSWORD` e `REDIS_PASSWORD`: senhas fortes; `DB_SSL` e `REDIS_TLS` em `true` com serviço gerenciado
 - `WEBAUTHN_RP_ID` e `WEBAUTHN_ORIGIN`: domínio e origem exatos do front-end. A passkey fica presa
   ao domínio, então trocar o `WEBAUTHN_RP_ID` invalida todas as passkeys já cadastradas
 

@@ -4,15 +4,19 @@ services:
   # ─── Backend API ─────────────────────────────────────────────────
   api:
     build:
-      context: ./backend
-      dockerfile: ../docker/Dockerfile.backend
+      # A raiz, e não ./backend: o lockfile do workspace vive aqui.
+      context: .
+      dockerfile: docker/Dockerfile.backend
       target: production
     container_name: enterprise_api
     restart: unless-stopped
-    ports:
-      - "3001:3001"
+    # Sem porta publicada: a API só é alcançada pelo Nginx, e a de métricas só pelo Prometheus.
+    expose:
+      - "3001"
+      - "9464"
     environment:
       - NODE_ENV=production
+      - METRICS_HOST=0.0.0.0
     env_file:
       - ./backend/.env
     depends_on:
@@ -23,7 +27,6 @@ services:
     networks:
       - enterprise_network
     volumes:
-      - api_logs:/app/logs
       - api_uploads:/app/uploads
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3001/health/live"]
@@ -41,7 +44,8 @@ services:
           memory: 128M
     security_opt:
       - no-new-privileges:true
-    read_only: false
+    cap_drop: [ALL]
+    read_only: true
     tmpfs:
       - /tmp
 
@@ -55,7 +59,7 @@ services:
     container_name: enterprise_frontend
     restart: unless-stopped
     ports:
-      - "3000:8080"
+      - "127.0.0.1:3000:8080"
     depends_on:
       - api
     networks:
@@ -79,7 +83,7 @@ services:
       POSTGRES_PASSWORD: ${DB_PASSWORD}
       POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256"
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
@@ -134,7 +138,7 @@ services:
       --loglevel warning
       --protected-mode yes
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
     volumes:
       - redis_data:/data
     networks:
@@ -154,7 +158,7 @@ services:
 
   # ─── Nginx Reverse Proxy ─────────────────────────────────────────
   nginx:
-    image: nginx:1.25-alpine
+    image: nginx:1.30-alpine@sha256:caf4e1e032a20f9c3c5e28fc7f25ffd768ad8677b4975c54193075997b3a97e3
     container_name: enterprise_nginx
     restart: unless-stopped
     ports:
@@ -177,6 +181,27 @@ services:
     security_opt:
       - no-new-privileges:true
 
+  # ─── Prometheus (docker compose --profile observabilidade up) ─────
+  prometheus:
+    image: prom/prometheus:v3.16.0
+    profiles: [observabilidade]
+    restart: unless-stopped
+    command: ["--config.file=/etc/prometheus/prometheus.yml", "--storage.tsdb.retention.time=15d"]
+    ports:
+      - "127.0.0.1:9090:9090"
+    volumes:
+      - ./observabilidade/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./observabilidade/regras.yml:/etc/prometheus/regras.yml:ro
+      - prometheus_data:/prometheus
+    depends_on:
+      - api
+    networks:
+      - enterprise_network
+    cap_drop: [ALL]
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+
 # ─── Networks ───────────────────────────────────────────────────────
 networks:
   enterprise_network:
@@ -191,9 +216,9 @@ volumes:
     driver: local
   redis_data:
     driver: local
-  api_logs:
-    driver: local
   api_uploads:
     driver: local
   nginx_logs:
+    driver: local
+  prometheus_data:
     driver: local

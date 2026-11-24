@@ -1,0 +1,3 @@
+# Falso positivo histórico: marcador "indisponivel" no SMTP da tarefa da AWS, que
+# a API ainda não usa. Trocado pelo segredo "smtp" do cofre no commit seguinte.
+6258f698d3b7b5649321d6be4fd9da7815767231:infra/aws/api.tf:hashicorp-tf-password:70

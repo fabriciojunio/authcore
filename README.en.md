@@ -16,15 +16,16 @@ refresh token. Sign-up returns a message and leaves the account pending; it does
 in. Email delivery and self-service activation are not complete yet. Demo mode uses local data and
 grants no API access.
 
-Before upgrading the back end, run the migrations in this order: the `sessionVersion` one and
-`EncryptTwoFactorSecret`, which encrypts TOTP secrets already stored and needs the same
-`ENCRYPTION_KEY` as the application.
+Before upgrading the back end, run `npm run migration:run`. `EncryptTwoFactorSecret` encrypts TOTP
+secrets already stored and needs the same `ENCRYPTION_KEY` as the application; `AddLastTotpStep`
+adds the single-use code column, and 2FA login fails without it.
 
 ## Tech stack
 
 **Back end:** Node.js 22 · TypeScript · Express · TypeORM · PostgreSQL · Redis · Zod
 **Front end:** React 18 · TypeScript · Vite · Zustand · React Query
 **Infrastructure:** Docker · Nginx · GitHub Actions
+**Observability:** Prometheus · OpenTelemetry · JSON logs with correlation
 **Security:** Helmet · JWT HS256 · bcrypt · AES-256-GCM · rate limiting · CORS · HPP
 
 ## Architecture
@@ -42,13 +43,18 @@ authcore/
 │   │   ├── repositories/        # data access (Repository)
 │   │   ├── routes/              # routes with Zod schemas and Swagger
 │   │   ├── services/            # business rules
-│   │   └── utils/               # field cipher, logger, sanitizer
+│   │   ├── observability/       # context, metrics and tracing
+│   │   └── utils/               # field cipher, log redaction
 │   └── tests/
 │       ├── unit/
-│       └── integration/         # HTTP routes, IDOR, real Postgres
+│       ├── integration/         # HTTP routes, IDOR, real Postgres
+│       ├── pentest/             # every attack from the penetration test
+│       └── smoke/               # compiled API: real logs, metrics and traces
 ├── frontend/                    # React SPA
 ├── docker/                      # images, nginx and Postgres init
-├── docs/seguranca/              # threat model and ASVS checklist
+├── docs/                        # operations, threat model and ASVS checklist
+├── infra/                       # AWS in OpenTofu, tested without an account
+├── observabilidade/             # service and detection alerts, with tests
 └── docker-compose.yml
 ```
 
@@ -68,7 +74,9 @@ authcore/
 - `sessionVersion` checked in the database on every request: logout and password change revoke
   everything
 - Lockout after 5 failures and a dummy comparison for unknown accounts
-- TOTP 2FA at login, with the secret encrypted in the database (AES-256-GCM, key derived by HKDF)
+- TOTP 2FA at login, with the secret encrypted in the database (AES-256-GCM, key derived by HKDF) and
+  single-use codes (RFC 6238), enforced by a conditional `UPDATE` that holds under concurrency
+- Same message and same CPU cost for existing, unknown and locked accounts
 - Passkeys (WebAuthn): passwordless sign-in with the device's biometrics or PIN, single-use
   challenge in Redis, origin and RP checked, a counter that only moves forward and removal limited
   to the owner
@@ -92,9 +100,21 @@ authcore/
 ### Data and infrastructure
 - bcrypt 12; sensitive fields kept out of queries and responses
 - Emails kept out of logs; the logger replaces password, token, secret, cookie and Authorization
-  with `[REDACTED]`
+  with `[REDACTED]` at any depth, and keeps only name, message and stack of a database error
 - Non-root containers, images pinned by digest, `no-new-privileges`
+- The API connects with a user that can only append to the audit trail: whoever takes it cannot erase
+  the evidence, proven against a real PostgreSQL in `infra/aws/banco/provar.sh`
+- AWS infrastructure in [infra](infra/README.en.md): API with no route to the internet, WAF and a secrets
+  vault. Tested code; nothing is live
 - Postgres with `scram-sha-256` authentication; the API is never exposed without Nginx in front
+
+### Detection
+- A metric per security event: login failures by reason, refresh reuse, CSRF, rate limit, denied access,
+  audit writes that failed
+- Alerts tagged with MITRE ATT&CK techniques for password spraying, enumeration, second-factor attacks
+  and session theft, each tested for the case that fires and the one that must not
+- Server-generated `correlationId`, the same in header, error body and log; `traceId` links to the trace
+- A runbook per alert in [docs/operacao.en.md](docs/operacao.en.md)
 
 ### Pipeline
 - CodeQL `security-extended`, OSV-Scanner, `npm audit` and gitleaks on every push
@@ -104,6 +124,17 @@ authcore/
 Details are in the [threat model](docs/seguranca/modelo-de-ameacas.en.md), the
 [OWASP ASVS 5.0 checklist](docs/seguranca/asvs.en.md) and [SECURITY.en.md](SECURITY.en.md), which also
 explains how to report a vulnerability.
+
+### Penetration test
+
+The [November 2026 report](docs/seguranca/pentest-2026-11.en.md) is a white box test against the API
+itself. No attack managed to authenticate, escalate privilege or read another user's data; four edge
+findings came out. All four are fixed, and the retest is in the report. Every attack has a test in
+`backend/tests/pentest/`:
+
+```bash
+cd backend && npx jest tests/pentest --verbose
+```
 
 ## Running it
 
@@ -123,6 +154,7 @@ Local production build:
 docker-compose up -d --build
 docker-compose ps
 curl http://localhost/health
+docker compose --profile observabilidade up -d    # Prometheus on http://localhost:9090
 ```
 
 ## Identity with Keycloak and Kong
@@ -169,7 +201,7 @@ npm run test:coverage      # with coverage
 cd backend && npm run test:watch
 ```
 
-306 back-end tests. Twelve of them start a real PostgreSQL and Redis and only run with
+376 back-end tests. Fourteen of them start a real PostgreSQL and Redis and only run with
 `AUTHCORE_POSTGRES_TEST=1`; in CI they always run. Minimum coverage is 80% of lines and 70% of
 branches.
 

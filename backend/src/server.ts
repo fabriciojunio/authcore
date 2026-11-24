@@ -1,9 +1,12 @@
 import 'dotenv/config';
+// Antes de Express, pg e redis: a instrumentação troca os módulos no require.
+import { tracerProvider } from './observability/tracing';
 import { createApp } from './app';
 import { initializeDatabase } from './config/database';
 import { initializeRedis, closeRedis } from './config/redis';
 import { config } from './config/app.config';
 import { logger } from './config/logger';
+import { createMetricsServer } from './observability/metrics.server';
 
 async function bootstrap(): Promise<void> {
   try {
@@ -23,10 +26,15 @@ async function bootstrap(): Promise<void> {
       logger.info(`API Base: http://localhost:${config.node.port}${config.app.apiPrefix}`);
     });
 
+    const metricsServer = createMetricsServer().listen(config.metrics.port, config.metrics.host, () => {
+      logger.info(`Metrics on ${config.metrics.host}:${config.metrics.port}`);
+    });
+
     // Graceful Shutdown
     const gracefulShutdown = (signal: string): void => {
       logger.info(`Received ${signal}. Starting graceful shutdown...`);
 
+      metricsServer.close();
       server.close(() => {
         logger.info('HTTP server closed');
 
@@ -40,6 +48,7 @@ async function bootstrap(): Promise<void> {
             logger.info('Database connection closed');
           }
 
+          await tracerProvider?.shutdown();
           logger.info('Graceful shutdown completed');
           process.exit(0);
         })();

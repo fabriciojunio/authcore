@@ -57,3 +57,10 @@ playwright-report/
 identidade/kong/kong.yml
 identidade/recursos/target/
 __pycache__/
+
+# OpenTofu: o lock entra, o resto não
+**/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+*.tfvars

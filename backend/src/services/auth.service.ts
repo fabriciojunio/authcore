@@ -31,6 +31,8 @@ export interface AuthResult {
   tokens: TokenPair;
 }
 
+const TOTP_STEP_SECONDS = 30;
+
 export class AuthService {
   // Resposta idêntica em qualquer cenário de cadastro para não revelar
   // se um e-mail já existe (proteção contra enumeração de usuários).
@@ -47,7 +49,10 @@ export class AuthService {
 
     if (existing) {
       // Não revela que o e-mail já existe; um e-mail de "conta já cadastrada"
-      // seria enviado em produção.
+      // seria enviado em produção. O hash abaixo é jogado fora: gasta o mesmo
+      // tempo do @BeforeInsert do caminho novo, senão o relógio contaria o que a
+      // mensagem esconde (AUTHCORE-001).
+      await bcrypt.hash(dto.password, config.security.bcryptRounds);
       logger.warn('Registration attempt for existing email', { userId: existing.id });
       await auditService.record({ action: AuditAction.REGISTER_EXISTING, userId: existing.id, ...context });
       return { message: AuthService.REGISTER_MESSAGE };
@@ -83,11 +88,13 @@ export class AuthService {
       throw new AuthenticationError('Invalid credentials');
     }
 
+    // Mesma mensagem e mesmo custo da senha errada: só e-mail cadastrado chega a
+    // bloquear, então qualquer diferença aqui confirma que a conta existe
+    // (AUTHCORE-003). O motivo real fica na trilha de auditoria.
     if (user.isLocked()) {
+      await this.simulatePasswordCheck(dto.password);
       await recordFailure(user.id, 'locked');
-      throw new AuthenticationError(
-        'Account temporarily locked due to too many failed attempts. Try again later.'
-      );
+      throw new AuthenticationError('Invalid credentials');
     }
 
     const isPasswordValid = await user.comparePassword(dto.password);
@@ -113,10 +120,14 @@ export class AuthService {
       if (!dto.totp) {
         throw new ValidationError('Two-factor authentication code required');
       }
-      const isValidTotp = this.verifyTotp(user.twoFactorSecret!, dto.totp);
-      if (!isValidTotp) {
+      const step = this.matchTotpStep(user.twoFactorSecret!, dto.totp);
+      // RFC 6238, seção 5.2: cada código vale uma vez. O passo só é aceito se for
+      // maior que o último usado, numa única instrução no banco, então duas
+      // requisições simultâneas com o mesmo código não passam as duas (AUTHCORE-002).
+      const fresh = step !== null && (await userRepository.consumeTotpStep(user.id, step));
+      if (!fresh) {
         await userRepository.recordFailedLogin(user);
-        await recordFailure(user.id, 'bad_totp');
+        await recordFailure(user.id, step === null ? 'bad_totp' : 'totp_replay');
         throw new AuthenticationError('Invalid two-factor code');
       }
     }
@@ -209,8 +220,13 @@ export class AuthService {
     await bcrypt.compare(candidate, dummy);
   }
 
-  private verifyTotp(secret: string, token: string): boolean {
-    return speakeasy.totp.verify({
+  // Devolve o passo de tempo a que o código pertence, ou null se não confere.
+  private matchTotpStep(secret: string, token: string): number | null {
+    // Um relógio só para conferir e para calcular o passo: lendo duas vezes, a virada de
+    // passo entre as leituras gravaria o passo errado.
+    const time = Math.floor(Date.now() / 1000);
+    const match = speakeasy.totp.verifyDelta({
+      time,
       secret,
       encoding: 'base32',
       token,
@@ -218,6 +234,7 @@ export class AuthService {
       // códigos TOTP mantendo tolerância a relógios levemente dessincronizados.
       window: 1,
     });
+    return match ? Math.floor(time / TOTP_STEP_SECONDS) + match.delta : null;
   }
 }
 
