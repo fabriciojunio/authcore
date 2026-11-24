@@ -69,7 +69,9 @@ describe('métricas', () => {
     await request(app).get('/api/v1/users/123?token=segredo');
     await request(app).get('/api/v1/users/456');
     expect(await metric('authcore_http_requests_total', { route: '/api/v1/users/:id', status: '200' })).toBe(2);
-    expect(await registry.metrics()).not.toMatch(/123|segredo/);
+    // O texto inteiro tem métricas do processo (memória, PID) com qualquer número; o que não pode
+    // aparecer é o caminho com o id nem a consulta.
+    expect(await registry.metrics()).not.toMatch(/users\/123|users\/456|segredo/);
   });
 
   it('mantém o prefixo quando a resposta sai pelo tratador de erro', async () => {
