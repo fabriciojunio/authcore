@@ -53,6 +53,7 @@ authcore/
 ├── frontend/                    # SPA React
 ├── docker/                      # imagens, nginx e init do Postgres
 ├── docs/                        # operação, modelo de ameaças e checklist ASVS
+├── infra/                       # AWS em OpenTofu, testada sem conta
 ├── observabilidade/             # alertas de serviço e de detecção, com teste
 └── docker-compose.yml
 ```
@@ -99,6 +100,10 @@ authcore/
 - E-mail fora dos logs; o logger troca por `[REDACTED]` senha, token, segredo, cookie e Authorization,
   em qualquer profundidade, e de um erro de banco guarda só nome, mensagem e pilha
 - Contêineres sem root, imagens fixadas por digest, `no-new-privileges`
+- A API entra no banco com um usuário que só acrescenta na trilha de auditoria: quem a tomar não apaga
+  o rastro, provado contra PostgreSQL real em `infra/aws/banco/provar.sh`
+- Infraestrutura da AWS em [infra](infra/README.md): API sem rota para a internet, WAF e segredo no cofre.
+  É código testado; nada está no ar
 - Postgres com autenticação `scram-sha-256`; a API nunca fica exposta sem o Nginx na frente
 
 ### Detecção
@@ -194,7 +199,7 @@ npm run test:coverage      # com cobertura
 cd backend && npm run test:watch
 ```
 
-370 testes no back-end. Catorze deles sobem PostgreSQL e Redis de verdade e só rodam com
+376 testes no back-end. Catorze deles sobem PostgreSQL e Redis de verdade e só rodam com
 `AUTHCORE_POSTGRES_TEST=1`; no CI rodam sempre. A cobertura mínima exigida é 80% de linhas e 70% de
 ramos.
 

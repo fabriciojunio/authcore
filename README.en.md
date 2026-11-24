@@ -53,6 +53,7 @@ authcore/
 ├── frontend/                    # React SPA
 ├── docker/                      # images, nginx and Postgres init
 ├── docs/                        # operations, threat model and ASVS checklist
+├── infra/                       # AWS in OpenTofu, tested without an account
 ├── observabilidade/             # service and detection alerts, with tests
 └── docker-compose.yml
 ```
@@ -101,6 +102,10 @@ authcore/
 - Emails kept out of logs; the logger replaces password, token, secret, cookie and Authorization
   with `[REDACTED]` at any depth, and keeps only name, message and stack of a database error
 - Non-root containers, images pinned by digest, `no-new-privileges`
+- The API connects with a user that can only append to the audit trail: whoever takes it cannot erase
+  the evidence, proven against a real PostgreSQL in `infra/aws/banco/provar.sh`
+- AWS infrastructure in [infra](infra/README.en.md): API with no route to the internet, WAF and a secrets
+  vault. Tested code; nothing is live
 - Postgres with `scram-sha-256` authentication; the API is never exposed without Nginx in front
 
 ### Detection
@@ -196,7 +201,7 @@ npm run test:coverage      # with coverage
 cd backend && npm run test:watch
 ```
 
-370 back-end tests. Fourteen of them start a real PostgreSQL and Redis and only run with
+376 back-end tests. Fourteen of them start a real PostgreSQL and Redis and only run with
 `AUTHCORE_POSTGRES_TEST=1`; in CI they always run. Minimum coverage is 80% of lines and 70% of
 branches.
 
