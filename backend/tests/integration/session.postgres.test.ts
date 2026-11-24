@@ -195,6 +195,19 @@ postgres('Sessões com PostgreSQL real', () => {
     const login = await request(createApp()).post('/api/v1/auth/login').set('Origin', ORIGIN)
       .send({ email, password: 'StartPassword1!', totp });
     expect(login.status).toBe(200);
+
+    const repetido = await request(createApp()).post('/api/v1/auth/login').set('Origin', ORIGIN)
+      .send({ email, password: 'StartPassword1!', totp });
+    expect(repetido.status).toBe(401);
+  });
+
+  it('consome cada passo TOTP uma vez, mesmo com dez requisições simultâneas', async () => {
+    const user = await userRepository.create({ name: 'Corrida', email: `corrida-${randomUUID()}@example.test`,
+      password: 'StartPassword1!', role: UserRole.USER, status: UserStatus.ACTIVE });
+    const aceitos = await Promise.all(Array.from({ length: 10 }, () => userRepository.consumeTotpStep(user.id, 500)));
+    expect(aceitos.filter(Boolean)).toHaveLength(1);
+    expect(await userRepository.consumeTotpStep(user.id, 499)).toBe(false);
+    expect(await userRepository.consumeTotpStep(user.id, 501)).toBe(true);
   });
 
   it('cifra pela migração os segredos TOTP gravados antes em texto puro', async () => {

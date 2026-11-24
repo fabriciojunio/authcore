@@ -33,6 +33,15 @@ export class UserRepository extends BaseRepository<User> {
       .execute();
   }
 
+  async consumeTotpStep(id: string, step: number): Promise<boolean> {
+    const result = await this.repository.createQueryBuilder()
+      .update(User)
+      .set({ lastTotpStep: step })
+      .where('id = :id AND (last_totp_step IS NULL OR last_totp_step < :step)', { id, step })
+      .execute();
+    return result.affected === 1;
+  }
+
   async changePasswordIfCurrent(user: User, passwordHash: string): Promise<boolean> {
     const result = await this.repository.update(
       { id: user.id, password: user.password, sessionVersion: user.sessionVersion, deletedAt: IsNull() },
