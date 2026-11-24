@@ -47,7 +47,7 @@ todas pegas pelo caso certo.
 | `conversas_permitidas_sao_so_estas` | a lista inteira de quem fala com quem |
 | `endpoints_presos_a_conta` | conta de fora recusada dos dois lados |
 | `conteiner_endurecido` | sem root, sem capacidade, disco só leitura, por digest, sem shell |
-| `segredo_so_pelo_cofre` | cinco segredos no cofre, nenhum em variável |
+| `segredo_so_pelo_cofre` | seis segredos no cofre, nenhuma senha em variável |
 | `api_entra_no_banco_com_usuario_minimo` | a API não é dona do banco |
 | `banco_fechado_e_cifrado` | privado, TLS obrigatório, sem dado pessoal no log |
 | `cache_cifrado_nos_dois_lados` | TLS, e desafio de passkey fora de cópia de segurança |
@@ -79,7 +79,7 @@ Precisa de conta, domínio com certificado no ACM e bucket para o estado.
 2. `tofu apply -target=aws_ecr_repository.api`, construir `docker/Dockerfile.backend`, enviar e anotar
    o digest.
 3. `tofu plan -out=plano`, ler, `tofu apply plano`.
-4. Gravar os cinco segredos no Secrets Manager. O `redis` é o mesmo valor de `senha_do_redis`.
+4. Gravar os seis segredos no Secrets Manager (o `smtp` pode ser qualquer valor até o e-mail existir). O `redis` é o mesmo valor de `senha_do_redis`.
 5. Por um acesso temporário à sub-rede de dados, com o segredo do dono: rodar as migrações e
    `banco/usuario-da-aplicacao.sql` com a senha do segredo `db-app`.
 6. Repetir o SQL do passo 5 a cada tabela nova: permissão não vem sozinha, de propósito.

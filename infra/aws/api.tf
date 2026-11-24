@@ -47,6 +47,7 @@ locals {
     ENCRYPTION_KEY     = "encryption-key"
     DB_PASSWORD        = "db-app"
     REDIS_PASSWORD     = "redis"
+    SMTP_PASSWORD      = "smtp"
   }
 
   ambiente = {
@@ -64,11 +65,11 @@ locals {
     WEBAUTHN_ORIGIN    = var.origem_do_front
     UPLOAD_PATH        = "/app/uploads"
     ALLOWED_FILE_TYPES = "image/jpeg,image/png,image/webp"
-    # O envio de e-mail ainda não existe na API, e a sub-rede não tem saída.
-    SMTP_HOST     = "indisponivel.invalid"
-    SMTP_USER     = "indisponivel"
-    SMTP_PASSWORD = "indisponivel"
-    EMAIL_FROM    = "naoresponda@${replace(var.origem_do_front, "https://", "")}"
+    # O envio de e-mail ainda não existe na API, e a sub-rede não tem saída. A
+    # senha do SMTP fica no cofre mesmo assim: valor fixo de senha não entra no código.
+    SMTP_HOST  = "indisponivel.invalid"
+    SMTP_USER  = "indisponivel"
+    EMAIL_FROM = "naoresponda@${replace(var.origem_do_front, "https://", "")}"
   }
 }
 

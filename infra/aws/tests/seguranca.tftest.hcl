@@ -162,14 +162,14 @@ run "segredo_so_pelo_cofre" {
   command = apply
   assert {
     condition = toset([for s in jsondecode(aws_ecs_task_definition.api.container_definitions)[0].secrets : s.name]) == toset([
-      "JWT_ACCESS_SECRET", "JWT_REFRESH_SECRET", "ENCRYPTION_KEY", "DB_PASSWORD", "REDIS_PASSWORD",
+      "JWT_ACCESS_SECRET", "JWT_REFRESH_SECRET", "ENCRYPTION_KEY", "DB_PASSWORD", "REDIS_PASSWORD", "SMTP_PASSWORD",
     ])
-    error_message = "os cinco segredos precisam vir do Secrets Manager"
+    error_message = "os seis segredos precisam vir do Secrets Manager"
   }
   assert {
     condition = alltrue([
       for e in jsondecode(aws_ecs_task_definition.api.container_definitions)[0].environment :
-      !can(regex("SECRET|_KEY$|^DB_PASSWORD$|^REDIS_PASSWORD$", e.name))
+      !can(regex("SECRET|_KEY$|PASSWORD", e.name))
     ])
     error_message = "segredo em variável comum aparece na definição da tarefa"
   }

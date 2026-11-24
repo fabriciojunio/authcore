@@ -60,6 +60,7 @@ list and blocks an acceptance again once its review date passes.
 | Finding | Reason | Review |
 |---|---|---|
 | CodeQL `js/missing-token-validation` in `backend/src/app.ts` | The rule only recognises libraries such as `csurf`; protection here is the `Origin`/`Referer` check, listed in the OWASP CSRF Prevention Cheat Sheet, with its own tests. | 28/04/2027 |
+| gitleaks `hashicorp-tf-password` in commit `6258f69` (`infra/aws/api.tf`) | The value was the placeholder `indisponivel`, not a password; the API does not send email yet. Since the next commit the SMTP password comes from the vault, and only that commit's fingerprint is in [`.gitleaksignore`](.gitleaksignore). | no review: history |
 | `deepmerge`, GHSA-gcqx-w48m-w2h4 (low in npm, CVSS 5.3 in OSV) | Comes from Jest and only exists in tests; there is no fixed version and npm's suggestion would downgrade Jest to a 2020 release. Recorded in [`osv-scanner.toml`](osv-scanner.toml). | 28/04/2027 |
 
 ## Technical validation

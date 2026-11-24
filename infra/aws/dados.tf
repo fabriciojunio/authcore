@@ -55,7 +55,7 @@ data "aws_iam_policy_document" "chave" {
 # Só o contêiner do segredo; o valor é gravado fora do código. A senha do dono do
 # banco é do próprio RDS, e a API não a lê: ela entra como authcore_app.
 resource "aws_secretsmanager_secret" "api" {
-  for_each                = toset(["jwt-access", "jwt-refresh", "encryption-key", "db-app", "redis"])
+  for_each                = toset(["jwt-access", "jwt-refresh", "encryption-key", "db-app", "redis", "smtp"])
   name                    = "${local.nome}/${each.value}"
   kms_key_id              = aws_kms_key.principal.arn
   recovery_window_in_days = 30
