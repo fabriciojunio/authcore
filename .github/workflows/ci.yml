@@ -317,9 +317,7 @@ jobs:
         run: |
           banco="$(openssl rand -hex 16)"
           cache="$(openssl rand -hex 16)"
-          printf 'DB_PASSWORD=%s
-REDIS_PASSWORD=%s
-' "$banco" "$cache" > .env
+          printf 'DB_PASSWORD=%s\nREDIS_PASSWORD=%s\n' "$banco" "$cache" > .env
           sed -e 's/^NODE_ENV=.*/NODE_ENV=production/'               -e "s/^JWT_ACCESS_SECRET=.*/JWT_ACCESS_SECRET=$(openssl rand -hex 64)/"               -e "s/^JWT_REFRESH_SECRET=.*/JWT_REFRESH_SECRET=$(openssl rand -hex 64)/"               -e "s/^ENCRYPTION_KEY=.*/ENCRYPTION_KEY=$(openssl rand -hex 16)/"               -e 's/^DB_HOST=.*/DB_HOST=postgres/' -e "s/^DB_PASSWORD=.*/DB_PASSWORD=$banco/"               -e 's/^REDIS_HOST=.*/REDIS_HOST=redis/' -e "s/^REDIS_PASSWORD=.*/REDIS_PASSWORD=$cache/"               backend/.env.example > backend/.env
 
       - name: Up
