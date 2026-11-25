@@ -329,7 +329,7 @@ jobs:
           exit 1
 
       - name: Migrations
-        run: docker compose exec -T api node node_modules/typeorm/cli.js migration:run -d dist/config/database.js
+        run: docker compose exec -T api node node_modules/typeorm/cli.js migration:run -d backend/dist/config/database.js
 
       - name: Login answers 401 and metrics reach Prometheus
         run: |
