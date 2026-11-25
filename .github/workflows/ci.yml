@@ -300,6 +300,61 @@ jobs:
           rodar check rules regras.yml
           rodar test rules regras.teste.yml
 
+  # A pilha inteira no ar, como no README: era o único jeito de saber se o compose sobe.
+  compose:
+    name: Compose stack
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: lint
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # Senhas geradas na hora, só para esta execução.
+      - name: Environment
+        run: |
+          banco="$(openssl rand -hex 16)"
+          cache="$(openssl rand -hex 16)"
+          printf 'DB_PASSWORD=%s
+REDIS_PASSWORD=%s
+' "$banco" "$cache" > .env
+          sed -e 's/^NODE_ENV=.*/NODE_ENV=production/'               -e "s/^JWT_ACCESS_SECRET=.*/JWT_ACCESS_SECRET=$(openssl rand -hex 64)/"               -e "s/^JWT_REFRESH_SECRET=.*/JWT_REFRESH_SECRET=$(openssl rand -hex 64)/"               -e "s/^ENCRYPTION_KEY=.*/ENCRYPTION_KEY=$(openssl rand -hex 16)/"               -e 's/^DB_HOST=.*/DB_HOST=postgres/' -e "s/^DB_PASSWORD=.*/DB_PASSWORD=$banco/"               -e 's/^REDIS_HOST=.*/REDIS_HOST=redis/' -e "s/^REDIS_PASSWORD=.*/REDIS_PASSWORD=$cache/"               backend/.env.example > backend/.env
+
+      - name: Up
+        run: docker compose --profile observabilidade up -d --build --quiet-pull
+
+      - name: Ready through Nginx
+        run: |
+          for _ in $(seq 1 40); do curl -fsS http://localhost/health/ready && exit 0; sleep 3; done
+          exit 1
+
+      - name: Migrations
+        run: docker compose exec -T api node node_modules/typeorm/cli.js migration:run -d dist/config/database.js
+
+      - name: Login answers 401 and metrics reach Prometheus
+        run: |
+          codigo=$(curl -s -o /dev/null -w '%{http_code}' -X POST http://localhost/api/v1/auth/login             -H 'Content-Type: application/json' -d '{"email":"ninguem@example.com","password":"SenhaQualquer1!"}')
+          test "$codigo" = 401
+          for _ in $(seq 1 20); do
+            curl -fsS 'http://127.0.0.1:9090/api/v1/query?query=authcore_security_events_total%7Breason%3D%22unknown_user%22%7D%3E0' | grep -q unknown_user && exit 0
+            sleep 4
+          done
+          exit 1
+
+      - name: Only Nginx is reachable from outside, and the API runs locked down
+        run: |
+          externas=$(docker ps --format '{{.Names}} {{.Ports}}' | grep -E '0\.0\.0\.0:|\[::\]:' | awk '{print $1}')
+          test "$externas" = enterprise_nginx
+          test "$(docker inspect -f '{{.HostConfig.ReadonlyRootfs}}' enterprise_api)" = true
+          test "$(docker compose exec -T api id -u)" = 1001
+          ! curl -fsS http://localhost/metrics | grep -q authcore_
+
+      - name: Logs on failure
+        if: failure()
+        run: docker compose logs --tail 60
+
   # Infraestrutura da AWS: formato, testes com provider simulado e varredura.
   infra:
     name: Infrastructure (OpenTofu + Trivy)
