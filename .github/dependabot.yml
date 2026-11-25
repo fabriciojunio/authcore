@@ -13,6 +13,10 @@ updates:
     cooldown:
       default-days: 7
     ignore:
+      # Versão principal muda API e entra como migração planejada e testada. Correção de
+      # segurança não passa por aqui e continua vindo.
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
       # Os tipos acompanham a versão principal do Node usada no CI e na imagem.
       - dependency-name: "@types/node"
         update-types: ["version-update:semver-major"]
@@ -31,6 +35,11 @@ updates:
       default-days: 7
     commit-message:
       prefix: "build(deps)"
+    ignore:
+      # Versão principal muda API e entra como migração planejada e testada. Correção de
+      # segurança não passa por aqui e continua vindo.
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
